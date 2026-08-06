@@ -15,6 +15,7 @@ import 'package:local_rag/document_indexing/chunker.dart';
 import 'package:local_rag/document_indexing/ingest.dart';
 import 'package:local_rag/ollama/ollama_client.dart';
 import '../bench_index.dart';
+import '../eval_set.dart';
 
 /// What gets measured when no models are named.
 ///
@@ -25,62 +26,6 @@ import '../bench_index.dart';
 const List<String> defaultModels = <String>[
   'locusai/all-minilm-l6-v2:latest', // all-MiniLM-L6-v2, the default
   'mxbai-embed-large:latest',
-];
-
-/// question -> the file that genuinely contains the answer
-const Map<String, String> evalSet = {
-  'How many days do I have to return unworn shoes?': 'returns_and_warranty.md',
-  'What is the warranty on the Heritage line?': 'returns_and_warranty.md',
-  'Can I get a refund on something I bought in a sale?':
-      'returns_and_warranty.md',
-  'How many people work at the company?': 'company_overview.md',
-  'Where is the Abuja branch located?': 'company_overview.md',
-  'When was the Port Harcourt location opened?': 'company_overview.md',
-  'Who makes our Heritage leather shoes?': 'suppliers.md',
-  'What are the payment terms with the Italian supplier?': 'suppliers.md',
-  'Which supplier has the lowest defect rate?': 'suppliers.md',
-  'How much annual leave do full-time staff get?': 'staff_handbook.md',
-  'What discount do employees get on Heritage shoes?': 'staff_handbook.md',
-  'What commission do staff earn on Heritage sales?': 'staff_handbook.md',
-};
-
-/// Short, entity-shaped questions the corpus also answers.
-///
-/// These exist because [evalSet] is made entirely of long descriptive
-/// sentences, and a gate calibrated on that shape alone comes out too high for
-/// the questions users actually type. "Who is Tunde?" scored 0.238 against a
-/// gate of 0.29 measured this way — the correct chunk ranked first and was
-/// discarded, with no error anywhere.
-///
-/// They feed the gate calculation but deliberately NOT the hit-rate table, so
-/// the model comparison stays comparable with previously recorded runs.
-const Map<String, String> shortFormEval = {
-  'Who is Tunde?': 'company_overview.md',
-  'Who is Adaeze?': 'company_overview.md',
-  'Who is the Operations Director?': 'company_overview.md',
-  'Who are the founders?': 'company_overview.md',
-  'What is the RC number?': 'company_overview.md',
-  'Where is the registered office?': 'company_overview.md',
-  'How much annual leave?': 'staff_handbook.md',
-  'Which supplier is in Aba?': 'suppliers.md',
-};
-
-/// Things a user says that must NOT trigger retrieval.
-const List<String> offTopic = <String>[
-  'Hello',
-  'hi there',
-  'thanks!',
-  'how are you doing today?',
-  'What is the capital of France?',
-  'Write me a haiku about rain',
-  'who won the world cup in 2018',
-  'explain recursion to me',
-  'good morning',
-  'ok',
-  // The sharpest cases now that short person-questions are being rescued:
-  // same shape as "Who is Tunde?", but about people the corpus never mentions.
-  'Who is Cristiano Ronaldo?',
-  'Who is Barack Obama?',
 ];
 
 class Result {

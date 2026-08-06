@@ -16,26 +16,10 @@ import 'package:local_rag/document_indexing/ingest.dart';
 import 'package:local_rag/ollama/ollama_client.dart';
 
 import '../bench_index.dart';
+import '../eval_set.dart';
 
 const String embedModel = 'mxbai-embed-large';
 const String chatModel = 'gpt-oss:latest';
-
-/// question -> the file that genuinely contains the answer
-const Map<String, String> evalSet = {
-  'How many days do I have to return unworn shoes?': 'returns_and_warranty.md',
-  'What is the warranty on the Heritage line?': 'returns_and_warranty.md',
-  'Can I get a refund on something I bought in a sale?':
-      'returns_and_warranty.md',
-  'How many people work at the company?': 'company_overview.md',
-  'Where is the Abuja branch located?': 'company_overview.md',
-  'When was the Port Harcourt location opened?': 'company_overview.md',
-  'Who makes our Heritage leather shoes?': 'suppliers.md',
-  'What are the payment terms with the Italian supplier?': 'suppliers.md',
-  'Which supplier has the lowest defect rate?': 'suppliers.md',
-  'How much annual leave do full-time staff get?': 'staff_handbook.md',
-  'What discount do employees get on Heritage shoes?': 'staff_handbook.md',
-  'What commission do staff earn on Heritage sales?': 'staff_handbook.md',
-};
 
 Future<void> _run() async {
   final kbPath = Platform.environment['KB'] ?? 'sample_kb';
@@ -50,9 +34,6 @@ Future<void> _run() async {
   stdout.writeln('Indexing $kbPath …');
   final sw = Stopwatch()..start();
   final files = await collectFiles(dir);
-  // Concrete type on purpose: this eval reaches into `chunks` to count how
-  // much of the CSV the retriever actually saw, and it wants the exact index
-  // as its baseline anyway. Passing no indexFactory gets the brute-force one.
   final index = await buildIndex(
     ollama: ollama,
     files: files,

@@ -25,17 +25,15 @@ class IndexingStatus extends StatelessWidget {
   }
 }
 
-/// Lets the exact and approximate indexes be swapped at will.
+/// What the current index actually contains.
 ///
-/// Exposed rather than hidden because the whole point is that they are
-/// comparable: same corpus, same vectors, same questions, and you can watch
-/// whether the answers change. Switching drops the current index, since the
-/// vectors only exist inside whichever store built them.
-
+/// Spelled out rather than reduced to a tick, because "43 chunks, 384-d,
+/// built by locusai/all-minilm-l6-v2" is what tells you whether the answers
+/// you are about to get can be trusted. An index built by a different model
+/// from the one now selected is the failure this card is here to make visible.
 class IndexedStatus extends StatelessWidget {
-  const IndexedStatus({super.key, required this.store, required this.path});
+  const IndexedStatus({super.key, required this.store});
   final ObjectBoxStore store;
-  final String? path;
 
   @override
   Widget build(BuildContext context) {
@@ -49,10 +47,8 @@ class IndexedStatus extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(children: [
-            Icon(Icons.check_circle, size: 15, color: Colors.greenAccent),
-            SizedBox(width: 6),
-          ]),
+          const Icon(Icons.check_circle, size: 15, color: Colors.greenAccent),
+          const SizedBox(height: 6),
           Text('${store.size} chunks indexed',
               style: const TextStyle(
                   fontSize: 12.5, fontWeight: FontWeight.w600)),
@@ -68,9 +64,3 @@ class IndexedStatus extends StatelessWidget {
     );
   }
 }
-
-/// Connection state for Ollama, and the way back when it is down.
-///
-/// The app is useless without Ollama, so this is deliberately the first thing
-/// in the sidebar and carries its own recovery action rather than telling the
-/// user to go open a terminal.

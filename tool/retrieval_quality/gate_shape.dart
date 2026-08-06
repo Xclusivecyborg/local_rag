@@ -27,61 +27,7 @@ import 'package:local_rag/ollama/ollama_client.dart';
 import 'package:local_rag/question_answering/rag_controller.dart';
 import 'package:local_rag/vector_search/stored_chunk.dart';
 import '../bench_index.dart';
-
-/// Questions the corpus genuinely answers, in the shape users actually type.
-/// Deliberately not the calibration set — that set is all long descriptive
-/// sentences, which is exactly the bias being investigated.
-const List<String> onTopic = <String>[
-  'Who is Tunde?',
-  'Who is Tunde Balogun?',
-  'Who is Adaeze?',
-  'Who is the Operations Director?',
-  'Who are the founders?',
-  'What is the RC number?',
-  'Where is the registered office?',
-  'When did the Abuja branch open?',
-  'How many staff are part-time?',
-  'What is the Heritage line?',
-  'Which supplier is in Aba?',
-  'How much annual leave?',
-];
-
-/// The original calibration set: question -> the file that answers it.
-///
-/// Carried here so a change made to rescue short questions can be checked for
-/// breaking the long ones. A fix that trades one failure for another is not a
-/// fix, and without this it would look like one.
-const Map<String, String> canonicalEval = {
-  'How many days do I have to return unworn shoes?': 'returns_and_warranty.md',
-  'What is the warranty on the Heritage line?': 'returns_and_warranty.md',
-  'Can I get a refund on something I bought in a sale?':
-      'returns_and_warranty.md',
-  'How many people work at the company?': 'company_overview.md',
-  'Where is the Abuja branch located?': 'company_overview.md',
-  'When was the Port Harcourt location opened?': 'company_overview.md',
-  'Who makes our Heritage leather shoes?': 'suppliers.md',
-  'What are the payment terms with the Italian supplier?': 'suppliers.md',
-  'Which supplier has the lowest defect rate?': 'suppliers.md',
-  'How much annual leave do full-time staff get?': 'staff_handbook.md',
-  'What discount do employees get on Heritage shoes?': 'staff_handbook.md',
-  'What commission do staff earn on Heritage sales?': 'staff_handbook.md',
-};
-
-/// Things that must NOT drag in documents.
-const List<String> offTopic = <String>[
-  'Hello',
-  'hi there',
-  'thanks!',
-  'how are you doing today?',
-  'What is the capital of France?',
-  'Write me a haiku about rain',
-  'who won the world cup in 2018',
-  'explain recursion to me',
-  'good morning',
-  'ok',
-  'Who is Cristiano Ronaldo?',
-  'Who is Barack Obama?',
-];
+import '../eval_set.dart';
 
 class Probe {
   Probe(this.question, this.hits);
@@ -154,7 +100,7 @@ Future<void> _report(
   );
   final store = index.store;
 
-  final on = await probeAll(ollama, store, model, onTopic);
+  final on = await probeAll(ollama, store, model, gateProbes);
   final off = await probeAll(ollama, store, model, offTopic);
 
   final onTop = on.map((p) => p.top).toList()..sort();
@@ -184,9 +130,11 @@ Future<void> _report(
   stdout.writeln('  with the shipping gate ($gate): '
       '$passing/${on.length} real questions retrieve');
 
-  // Does helping the short questions cost the long ones anything?
+  // Does helping the short questions cost the long ones anything? A fix that
+  // trades one failure for another is not a fix, and without this it looks
+  // like one.
   var at1 = 0, at5 = 0, cleared = 0;
-  for (final e in canonicalEval.entries) {
+  for (final e in evalSet.entries) {
     final qv = await ollama.embedOne(model: model, input: e.key);
     final hits = store.search(qv, k: 5,
         maxPerSource: RagController.maxChunksPerSource);
@@ -195,7 +143,7 @@ Future<void> _report(
     if (ranked.contains(e.value)) at5++;
     if (hits.isNotEmpty && hits.first.score >= gate) cleared++;
   }
-  final n = canonicalEval.length;
+  final n = evalSet.length;
   stdout.writeln('  canonical eval: hit@1 $at1/$n  hit@5 $at5/$n  '
       'clears gate $cleared/$n');
 

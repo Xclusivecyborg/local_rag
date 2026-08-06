@@ -98,7 +98,6 @@ class RagController extends ChangeNotifier {
   /// Structured tables from the same ingest, used for arithmetic.
   List<CsvTable> tables = const <CsvTable>[];
 
-  String? indexedFrom;
   IngestProgress? progress;
   bool isIndexing = false;
   bool isStreaming = false;
@@ -133,11 +132,6 @@ class RagController extends ChangeNotifier {
   /// When true, long questions and follow-ups are rewritten into a short search
   /// query before being embedded. Costs one extra model call on those turns.
   bool condenseQueries = true;
-
-  void setCondenseQueries(bool value) {
-    condenseQueries = value;
-    notifyListeners();
-  }
 
   final List<Turn> turns = <Turn>[];
   StreamSubscription<ChatChunk>? _sub;
@@ -272,27 +266,16 @@ class RagController extends ChangeNotifier {
   /// Cap on chunks any one file may contribute to the top k.
   static const int maxChunksPerSource = 2;
 
-  bool get hasTables => tables.isNotEmpty;
-
-  int get tableRowCount =>
-      tables.fold<int>(0, (sum, t) => sum + t.rowCount);
-
-  Future<File> _indexFile() async {
-    final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/index.json');
-  }
-
-  /// Kept beside the index rather than inside it, so an older index.json still
-  /// loads and simply arrives without tables.
+  /// Kept beside the index rather than inside it, so a database written by an
+  /// older build still loads and simply arrives without tables.
   Future<File> _tablesFile() async {
     final dir = await getApplicationSupportDirectory();
     return File('${dir.path}/tables.json');
   }
 
-  /// The ObjectBox database directory, derived from the index path so both
-  /// backends are configured from one place.
+  /// Where the ObjectBox database lives.
   Future<Directory> _indexDir() async =>
-      ObjectBoxStore.directoryFor(await _indexFile());
+      ObjectBoxStore.directoryIn(await getApplicationSupportDirectory());
 
   /// Builds an empty index of the currently selected [backend].
   ///
@@ -396,7 +379,6 @@ class RagController extends ChangeNotifier {
         // space and retrieval quietly returns nonsense.
         if (embedModel != null && loaded.isCompatibleWith(embedModel!)) {
           _replaceStore(loaded);
-          indexedFrom = loaded.sources.join(', ');
           final tablesFile = await _tablesFile();
           tables = await tablesFile.exists()
               ? CsvTable.decodeAll(await tablesFile.readAsString())
@@ -446,7 +428,6 @@ class RagController extends ChangeNotifier {
       // Tables are model-independent — no embeddings involved — but they came
       // from the folder the stale index describes, so they go together.
       tables = const <CsvTable>[];
-      indexedFrom = null;
       error = 'Embedding model changed to "$name". The previous index is no '
           'longer valid — pick your knowledge base again to re-index.';
     }
@@ -495,8 +476,8 @@ class RagController extends ChangeNotifier {
       );
       _replaceStore(built.store);
       tables = built.tables;
-      indexedFrom = dir.path;
-      await built.store.save(await _indexFile());
+      // The index needs no explicit save — ObjectBox wrote every chunk to disk
+      // as it was put. Only the tables, which live outside it, do.
       await (await _tablesFile())
           .writeAsString(CsvTable.encodeAll(built.tables));
     } on Object catch (e) {

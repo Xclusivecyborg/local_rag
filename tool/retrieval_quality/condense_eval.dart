@@ -16,28 +16,16 @@ import 'package:local_rag/question_answering/query_condenser.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 
 import '../bench_index.dart';
+import '../eval_set.dart';
 
 const embedModel = 'mxbai-embed-large';
 const chatModel = 'gpt-oss:latest';
 
-/// The eval set, plus the real questions that exposed the problem. Phrasings a
-/// user actually typed, not ones written to make the harness look good.
-const Map<String, String> evalSet = {
-  // --- original set -------------------------------------------------
-  'How many days do I have to return unworn shoes?': 'returns_and_warranty.md',
-  'What is the warranty on the Heritage line?': 'returns_and_warranty.md',
-  'Can I get a refund on something I bought in a sale?':
-      'returns_and_warranty.md',
-  'How many people work at the company?': 'company_overview.md',
-  'Where is the Abuja branch located?': 'company_overview.md',
-  'When was the Port Harcourt location opened?': 'company_overview.md',
-  'Who makes our Heritage leather shoes?': 'suppliers.md',
-  'What are the payment terms with the Italian supplier?': 'suppliers.md',
-  'Which supplier has the lowest defect rate?': 'suppliers.md',
-  'How much annual leave do full-time staff get?': 'staff_handbook.md',
-  'What discount do employees get on Heritage shoes?': 'staff_handbook.md',
-  'What commission do staff earn on Heritage sales?': 'staff_handbook.md',
-  // --- real questions that failed -----------------------------------
+/// The shared set, plus the long real questions that exposed the problem
+/// condensing exists to fix. Phrasings a user actually typed, not ones written
+/// to make the harness look good.
+const Map<String, String> condenseEval = {
+  ...evalSet,
   'How much will I get as discount if I purchase shoes worth 100,000 naira '
       'as an employee of stridewell?': 'staff_handbook.md',
   'If I bought a pair of Heritage shoes last month and they do not fit, '
@@ -81,7 +69,7 @@ Future<void> _run() async {
   final regressions = <String>[];
   final fixes = <String>[];
 
-  for (final entry in evalSet.entries) {
+  for (final entry in condenseEval.entries) {
     final question = entry.key;
     final expected = entry.value;
 
@@ -120,7 +108,7 @@ Future<void> _run() async {
     }
   }
 
-  final n = evalSet.length;
+  final n = condenseEval.length;
   String pct(int h) => '${(h / n * 100).round()}%';
 
   stdout.writeln('\n── Retrieval (n=$n, condensed $rewritten of them) ─────');

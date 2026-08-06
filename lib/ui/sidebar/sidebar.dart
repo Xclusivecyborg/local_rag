@@ -79,7 +79,7 @@ class Sidebar extends StatelessWidget {
             if (c.isIndexing)
               IndexingStatus(controller: c)
             else if (c.store != null)
-              IndexedStatus(store: c.store!, path: c.indexedFrom),
+              IndexedStatus(store: c.store!),
             const SizedBox(height: 28),
             const Divider(),
             const SizedBox(height: 8),

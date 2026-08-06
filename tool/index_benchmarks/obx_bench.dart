@@ -29,23 +29,7 @@ import 'package:local_rag/document_indexing/ingest.dart';
 import 'package:local_rag/ollama/ollama_client.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 
-/// The eval set, unchanged from tool/retrieval_quality/eval.dart so the numbers
-/// are comparable.
-const Map<String, String> evalSet = {
-  'How many days do I have to return unworn shoes?': 'returns_and_warranty.md',
-  'What is the warranty on the Heritage line?': 'returns_and_warranty.md',
-  'Can I get a refund on something I bought in a sale?':
-      'returns_and_warranty.md',
-  'How many people work at the company?': 'company_overview.md',
-  'Where is the Abuja branch located?': 'company_overview.md',
-  'When was the Port Harcourt location opened?': 'company_overview.md',
-  'Who makes our Heritage leather shoes?': 'suppliers.md',
-  'What are the payment terms with the Italian supplier?': 'suppliers.md',
-  'Which supplier has the lowest defect rate?': 'suppliers.md',
-  'How much annual leave do full-time staff get?': 'staff_handbook.md',
-  'What discount do employees get on Heritage shoes?': 'staff_handbook.md',
-  'What commission do staff earn on Heritage sales?': 'staff_handbook.md',
-};
+import '../eval_set.dart';
 
 String bar(String t) => '\n── $t ${'─' * math.max(2, 56 - t.length)}';
 

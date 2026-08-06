@@ -6,7 +6,7 @@ import 'csv_table.dart';
 /// will confidently answer "how much annual leave do staff get?" with a sum of
 /// a sales column. Every rule here is high-precision by design: when the
 /// question does not clearly name an aggregation and a column that exists in
-/// the data, [plan] returns null and the caller falls back to ordinary
+/// the data, [planFor] returns null and the caller falls back to ordinary
 /// retrieval.
 ///
 /// This is deliberately rule-based rather than a second model call. The rules
@@ -73,23 +73,6 @@ class TableQueryPlanner {
     'refunds': ['returned'],
     'price': ['price'],
   };
-
-  /// Plans a query against the first table that can satisfy it, or null.
-  static TableQuery? plan(List<CsvTable> tables, String question) {
-    for (final table in tables) {
-      final query = planFor(table, question);
-      if (query != null) return query;
-    }
-    return null;
-  }
-
-  /// The table a [plan] result belongs to.
-  static CsvTable? tableFor(List<CsvTable> tables, String question) {
-    for (final table in tables) {
-      if (planFor(table, question) != null) return table;
-    }
-    return null;
-  }
 
   static TableQuery? planFor(CsvTable table, String question) {
     if (table.rowCount == 0) return null;

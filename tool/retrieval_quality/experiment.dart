@@ -17,43 +17,14 @@ import 'package:local_rag/ollama/ollama_client.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 
 import '../bench_index.dart';
+import '../eval_set.dart';
 
 const String embedModel = 'mxbai-embed-large';
-
-const Map<String, String> evalSet = {
-  'How many days do I have to return unworn shoes?': 'returns_and_warranty.md',
-  'What is the warranty on the Heritage line?': 'returns_and_warranty.md',
-  'Can I get a refund on something I bought in a sale?':
-      'returns_and_warranty.md',
-  'How many people work at the company?': 'company_overview.md',
-  'Where is the Abuja branch located?': 'company_overview.md',
-  'When was the Port Harcourt location opened?': 'company_overview.md',
-  'Who makes our Heritage leather shoes?': 'suppliers.md',
-  'What are the payment terms with the Italian supplier?': 'suppliers.md',
-  'Which supplier has the lowest defect rate?': 'suppliers.md',
-  'How much annual leave do full-time staff get?': 'staff_handbook.md',
-  'What discount do employees get on Heritage shoes?': 'staff_handbook.md',
-  'What commission do staff earn on Heritage sales?': 'staff_handbook.md',
-};
-
-/// Things a user says that have nothing to do with the knowledge base.
-const List<String> offTopic = [
-  'Hello',
-  'hi there',
-  'thanks!',
-  'how are you doing today?',
-  'What is the capital of France?',
-  'Write me a haiku about rain',
-  'who won the world cup in 2018',
-  'explain recursion to me',
-  'good morning',
-  'ok',
-];
 
 Future<BenchIndex> build(
   OllamaClient ollama,
   List<File> files, {
-  int targetChars = 1200,
+  int targetChars = kDefaultTargetChars,
 }) async {
   final chunks = <Chunk>[];
   for (final f in files) {

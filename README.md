@@ -53,8 +53,10 @@ other installed model can still be chosen from the sidebar.
 ## The evaluation harness
 
 ```bash
-flutter test tool/retrieval_quality/eval.dart sample_kb
+flutter test tool/retrieval_quality/eval.dart
 ```
+
+It indexes `sample_kb/` by default; point it elsewhere with `KB=path/to/folder`.
 
 Indexes the folder, runs a fixed question set, and reports whether the chunk
 containing the answer made the top _k_. Change the chunk size or the embedding
@@ -529,10 +531,13 @@ lib/
 
 tool/
   bench_index.dart             shared: build a throwaway index from a folder
+  eval_set.dart                shared: the question sets, defined once
   retrieval_quality/           does retrieval find the right chunk?
     eval.dart                  hit-rate harness
     experiment.dart            score separation, cap sweep, prefix A/B
     compare_embedders.dart     head-to-head: hit rate, cost, per-model gate
+    gate_shape.dart            can the gate pass short questions but not chitchat?
+    why_did_it_miss.dart       post-mortem: full top-5 for one failing question
     condense_eval.dart         does query condensing help, and what does it break?
   index_benchmarks/            which vector backend, and from what corpus size?
     obx_bench.dart             build time, query latency and size vs corpus size
@@ -542,7 +547,7 @@ sample_kb/                     sample business knowledge base
 
 ### Tests
 
-122 total. `conversation_test.dart` and `index_directory_test.dart` need Ollama
+131 total. `conversation_test.dart` and `index_directory_test.dart` need Ollama
 running; both skip themselves if it is unreachable.
 
 Every script in `tool/` runs under `flutter test`, not `dart run` — the
@@ -558,7 +563,8 @@ reaching the index pulls in Flutter and the plain Dart VM cannot compile it.
 | `question_answering/index_directory_test.dart` | the real indexing path: build, persist, reload, re-index |
 | `table_arithmetic/table_test.dart` | exact arithmetic vs independently computed ground truth, and every case the planner must decline |
 | `question_answering/condenser_test.dart` | when to rewrite, and every way a rewrite is rejected |
-| `question_answering/retrieval_threshold_test.dart` | per-model gates |
+| `question_answering/retrieval_threshold_test.dart` | per-model gates, and a tripwire that fails if the chunk size changes without re-measuring them |
+| `question_answering/default_model_test.dart` | which model the app starts on when several are installed |
 | `question_answering/conversation_test.dart` | integration against a live model, incl. the January question answering 71,882,000 not 7,663,000 |
 | `ollama/launcher_test.dart` | paths a working machine never reaches: no binary, dangling symlink, failed spawn, start timeout, SIGTERM/SIGKILL escalation, a server we did not start |
 | `ui/markdown_test.dart` | renderer, including every streaming prefix |
@@ -568,12 +574,7 @@ reaching the index pulls in Flutter and the plain Dart VM cannot compile it.
 PDFs (text or scanned), Word documents, images, and incremental re-indexing —
 changing one file re-embeds the whole folder.
 
-**Query condensing** is the notable gap. Follow-ups work because history is
-replayed to the *model*, but retrieval still embeds the raw question. Ask "and
-the Abuja one?" and the search sees only those four words. Condensing the
-question against history before embedding is the standard fix.
-
-## Vector search: two backends
+## Vector search: one index, and the one it beat
 
 ObjectBox's HNSW graph is the only index. It was chosen against an exact
 brute-force scan that has since been removed, and the comparison is worth

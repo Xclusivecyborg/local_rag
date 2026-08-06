@@ -181,7 +181,8 @@ void main() {
         chunks([('alpha', 'a.md', 0), ('beta', 'b.md', 0)]),
         [vec(1024, 0), vec(1024, 1)],
       );
-      await first.save(File('${tmp.path}/index.json'));
+      // No save step: ObjectBox wrote every row to disk as it was put, which
+      // is the whole claim this test exists to check.
       first.close();
 
       final reopened = await ObjectBoxStore.open(dir);

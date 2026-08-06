@@ -63,9 +63,9 @@ class ObjectBoxStore {
     }
   }
 
-  /// The database directory, derived from the app's index path.
-  static Directory directoryFor(File indexFile) =>
-      Directory('${indexFile.parent.path}/objectbox');
+  /// Where the database lives inside the app's support directory.
+  static Directory directoryIn(Directory supportDir) =>
+      Directory('${supportDir.path}/objectbox');
 
   /// Opens an existing index, or null if [dir] holds no usable one.
   ///
@@ -162,17 +162,6 @@ class ObjectBoxStore {
     final want = maxPerSource == null ? k : k * overFetchFactor;
     return Vectors.capPerSource(_adapter.nearest(q, want, dimension), k,
         maxPerSource);
-  }
-
-  /// ObjectBox writes on `put`, so there is nothing to flush. The metadata row
-  /// is rewritten anyway so an index that was created and never re-opened
-  /// still identifies itself.
-  Future<void> save(File indexFile) async {
-    final box = _store.box<IndexMeta>();
-    final existing = box.getAll();
-    box.put((existing.isEmpty ? IndexMeta() : existing.first)
-      ..embeddingModel = embeddingModel
-      ..dimension = dimension);
   }
 
   /// Releases the native handle and the lock on the database directory.

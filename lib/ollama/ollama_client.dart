@@ -9,13 +9,14 @@ class OllamaModel {
     required this.name,
     required this.capabilities,
     this.parameterSize,
-    this.contextLength,
   });
 
   final String name;
   final List<String> capabilities;
+
+  /// "20B", "7B" — shown next to the name in the model picker, because two
+  /// tags of the same model are otherwise indistinguishable in a dropdown.
   final String? parameterSize;
-  final int? contextLength;
 
   /// Whether this model can hold a conversation.
   bool get canChat => capabilities.contains('completion');
@@ -38,7 +39,6 @@ class OllamaModel {
       capabilities:
           (json['capabilities'] as List?)?.cast<String>() ?? const <String>[],
       parameterSize: details['parameter_size'] as String?,
-      contextLength: details['context_length'] as int?,
     );
   }
 
@@ -192,7 +192,6 @@ class OllamaClient {
   ///
   /// Cancelling the subscription on this stream closes the underlying
   /// connection, which is how the UI's stop button aborts generation.
-  /// Streams a chat completion.
   ///
   /// Set [think] to false on a reasoning model when you want the answer and not
   /// the scratchpad — a one-line rewrite does not need several seconds of
