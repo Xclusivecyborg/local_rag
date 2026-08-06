@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The App Sandbox is deliberately OFF.
+
+	     A sandboxed app cannot spawn an executable outside its own bundle, so
+	     `ollama serve` is denied before it runs. This app's whole job is to
+	     drive an Ollama the user installed themselves — possibly via Homebrew,
+	     with no Ollama.app anywhere — so the sandbox is incompatible with the
+	     requirement.
+
+	     What it costs: no Mac App Store distribution, and no sandbox file or
+	     network boundary. Direct distribution (notarised .dmg) is unaffected.
+	     Most local-AI desktop tools make the same trade.
+
+	     To re-sandbox later, restore these and accept that auto-starting
+	     Ollama becomes impossible:
+	       com.apple.security.app-sandbox
+	       com.apple.security.network.client                 (reach Ollama)
+	       com.apple.security.files.user-selected.read-only  (read picked folders)
+	-->
+
+	<!-- Hardened runtime: the Dart VM JITs in debug builds. -->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+
+	<!-- Required even though the sandbox is OFF. Do not remove.
+
+	     file_picker checks for this key itself, via
+	     SecTaskCopyValueForEntitlement, before it will open a panel — it never
+	     asks whether the app is sandboxed. Without the key the plugin fails
+	     with PlatformException(ENTITLEMENT_NOT_FOUND) and the folder picker
+	     silently does nothing.
+
+	     So this is a declaration the plugin reads, not a sandbox permission.
+	     Read-only is enough: we only ever read the knowledge base. -->
+	<key>com.apple.security.files.user-selected.read-only</key>
+	<true/>
+</dict>
+</plist>

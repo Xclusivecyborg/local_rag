@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The App Sandbox is off here too.
+
+	     This file has to stay in step with DebugProfile.entitlements. The
+	     classic failure is changing only the debug one — everything works all
+	     through development and breaks the first time you ship a release build.
+	     See DebugProfile.entitlements for why the sandbox is off. -->
+
+	<!-- Required even without the sandbox: file_picker reads this key directly
+	     and refuses to open a panel without it. See DebugProfile.entitlements. -->
+	<key>com.apple.security.files.user-selected.read-only</key>
+	<true/>
+</dict>
+</plist>

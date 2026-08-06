@@ -1,0 +1,150 @@
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:7281081896971255754",
+      "lastPropertyId": "3:8616500209055333745",
+      "name": "IndexMeta",
+      "properties": [
+        {
+          "id": "1:4074178347411017180",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:5336963327543744855",
+          "name": "embeddingModel",
+          "type": 9
+        },
+        {
+          "id": "3:8616500209055333745",
+          "name": "dimension",
+          "type": 6
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "2:1231133224736568100",
+      "lastPropertyId": "5:819710150061258343",
+      "name": "Vec1024",
+      "properties": [
+        {
+          "id": "1:1594678592574069310",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:2703559651824435279",
+          "name": "text",
+          "type": 9
+        },
+        {
+          "id": "3:6667286149120050245",
+          "name": "source",
+          "type": 9
+        },
+        {
+          "id": "4:2729209285749521373",
+          "name": "chunkIndex",
+          "type": 6
+        },
+        {
+          "id": "5:819710150061258343",
+          "name": "vector",
+          "indexId": "1:5557743889158588684",
+          "type": 28,
+          "flags": 8
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "3:6104205050208575317",
+      "lastPropertyId": "5:2228581636249651841",
+      "name": "Vec384",
+      "properties": [
+        {
+          "id": "1:2763742148656007025",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:7774995061135767685",
+          "name": "text",
+          "type": 9
+        },
+        {
+          "id": "3:4145601801625783272",
+          "name": "source",
+          "type": 9
+        },
+        {
+          "id": "4:5612108657658328027",
+          "name": "chunkIndex",
+          "type": 6
+        },
+        {
+          "id": "5:2228581636249651841",
+          "name": "vector",
+          "indexId": "2:7004306443572010917",
+          "type": 28,
+          "flags": 8
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "4:6041125975613433094",
+      "lastPropertyId": "5:3686826584962964602",
+      "name": "Vec768",
+      "properties": [
+        {
+          "id": "1:5514489592015614860",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:8896210877452132379",
+          "name": "text",
+          "type": 9
+        },
+        {
+          "id": "3:9168548891000324713",
+          "name": "source",
+          "type": 9
+        },
+        {
+          "id": "4:2179445468035446153",
+          "name": "chunkIndex",
+          "type": 6
+        },
+        {
+          "id": "5:3686826584962964602",
+          "name": "vector",
+          "indexId": "3:2891250784389538170",
+          "type": 28,
+          "flags": 8
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "4:6041125975613433094",
+  "lastIndexId": "3:2891250784389538170",
+  "lastRelationId": "0:0",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 5,
+  "retiredEntityUids": [],
+  "retiredIndexUids": [],
+  "retiredPropertyUids": [],
+  "retiredRelationUids": [],
+  "version": 1
+}
