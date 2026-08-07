@@ -30,6 +30,13 @@ abstract interface class VecRow {
   String get text;
   String get source;
   int get chunkIndex;
+
+  /// Character span this chunk covers in its source file. Persisted so a
+  /// retrieved excerpt can be located in the document it came from, rather
+  /// than only named. Rows written before these existed read back as 0.
+  int get chunkStart;
+  int get chunkEnd;
+
   List<double>? get vector;
 }
 
@@ -58,6 +65,10 @@ class Vec384 implements VecRow {
   String source = '';
   @override
   int chunkIndex = 0;
+  @override
+  int chunkStart = 0;
+  @override
+  int chunkEnd = 0;
 
   @override
   @HnswIndex(dimensions: 384, distanceType: VectorDistanceType.cosine)
@@ -78,6 +89,10 @@ class Vec768 implements VecRow {
   String source = '';
   @override
   int chunkIndex = 0;
+  @override
+  int chunkStart = 0;
+  @override
+  int chunkEnd = 0;
 
   @override
   @HnswIndex(dimensions: 768, distanceType: VectorDistanceType.cosine)
@@ -98,6 +113,10 @@ class Vec1024 implements VecRow {
   String source = '';
   @override
   int chunkIndex = 0;
+  @override
+  int chunkStart = 0;
+  @override
+  int chunkEnd = 0;
 
   @override
   @HnswIndex(dimensions: 1024, distanceType: VectorDistanceType.cosine)

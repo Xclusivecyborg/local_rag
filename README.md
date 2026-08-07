@@ -84,7 +84,7 @@ per-source cap, and A/Bs the query prefix.
 
 ---
 
-## Four things this project is honest about
+## What this project is honest about
 
 ### 1. RAG cannot do arithmetic — so this app doesn't ask it to
 
@@ -198,8 +198,8 @@ part that bites:
 
 | model | worst real question | best off-topic | gate | misses | leaks |
 |---|---|---|---|---|---|
-| `mxbai-embed-large` ★ | 0.478 | 0.500 | 0.47 | 0/20 | 4/12 |
-| `locusai/all-minilm-l6-v2` ★ | 0.221 | 0.249 | 0.22 | 0/20 | 1/12 |
+| `mxbai-embed-large` ★ | 0.478 | 0.497 | 0.47 | 0/20 | 4/12 |
+| `locusai/all-minilm-l6-v2` ★ | 0.227 | 0.256 | 0.22 | 0/20 | 1/12 |
 
 Swap to MiniLM while keeping mxbai's gate and only **5 of 20** real questions
 still clear it. No exception, no warning — retrieval simply stops happening and
@@ -260,6 +260,58 @@ small talk matches everything equally badly. It scored **18/24 against 23/24
 for the plain score** — *"who won the world cup in 2018"* had a bigger lead
 over its runner-up than most real questions. `tool/retrieval_quality/gate_shape.dart`
 is the measurement that killed it.
+
+### The chunker, next to LangChain's
+
+`chunkDocument` is the same shape as LangChain's `RecursiveCharacterTextSplitter`
+and deliberately not its `CharacterTextSplitter`. The difference is what happens
+when the separator does not appear. Hand each of them one 1,524-character
+paragraph containing no blank line, asking for 600:
+
+```
+CharacterTextSplitter:          1 chunk,  sizes [1524]        ← plus a warning
+RecursiveCharacterTextSplitter: 4 chunks, sizes [599, 598, 589, 314]
+ours:                           3 chunks, sizes [548, 599, 599]
+```
+
+`CharacterTextSplitter` has exactly one rule, `"\n\n"`, and shrugs when it does
+not apply. `_splitIntoBlocks` walks a ladder instead — paragraph, then sentence,
+then a hard character cut — which is the recursive splitter's idea written out
+longhand.
+
+**Where this one is better: overlap is a target, not a ceiling.** LangChain
+builds overlap by keeping whole trailing splits while their combined length
+stays under the budget. If the last paragraph of a chunk is bigger than the
+budget it is dropped entirely and that boundary gets *no overlap at all*.
+Characters actually carried across each boundary of `company_overview.md` at
+600/200:
+
+| boundary | 0→1 | 1→2 | 2→3 | 3→4 | 4→5 | 5→6 |
+|---|---|---|---|---|---|---|
+| LangChain (both splitters) | 29 | 191 | 58 | **0** | 16 | — |
+| this | 192 | 192 | 119 | 195 | 197 | 198 |
+
+The whole point of overlap is that a fact straddling a boundary survives whole
+somewhere. A boundary that silently gets zero does not do that.
+
+**Where it was worse, until it was measured.** LangChain never exceeds the size
+you ask for. This did: the overlap tail was written into the buffer the moment a
+chunk was emitted, and the next block went in with no size check, so a chunk
+could reach `targetChars + overlapChars`. Measured at 667 against a 600 target
+on the real corpus, and 802 on input with nothing to break on. The tail is now
+held back until the next block is known and trimmed to whatever fits — which is
+why one boundary above carries 119 instead of ~195. That is the trade, and it is
+the right way round: a slightly thinner overlap is visible in a table, an
+oversized chunk is not.
+
+Re-measuring afterwards found both retrieval gates unchanged, and MiniLM's worst
+real question *improved* from 0.221 to 0.227 — a chunk no longer allowed to run
+over is a chunk about slightly fewer things.
+
+**Still missing, on purpose:** counting length in tokens rather than characters.
+LangChain's `length_function` takes a tokenizer; 600 characters here is a guess
+at ~150 tokens, and embedding models truncate on tokens. Ollama exposes no
+tokenizer over HTTP, so this would mean bundling one. Not worth it yet.
 
 ### 3. Changing the embedding model also invalidates the whole index
 
@@ -425,8 +477,8 @@ The threshold is measured, not guessed
 (`tool/retrieval_quality/compare_embedders.dart`):
 
 ```
-real questions       min 0.221   (20 questions, long and short form)
-off-topic chitchat   max 0.249   ("how are you doing today?")
+real questions       min 0.227   (20 questions, long and short form)
+off-topic chitchat   max 0.256   ("how are you doing today?")
                                   → gate 0.22, misses 0, leaks 1 of 12
 ```
 
@@ -492,7 +544,7 @@ lib/
     ollama_launcher.dart       finds the ollama binary and starts it, detached
 
   document_indexing/           files in, embedded chunks out
-    chunker.dart               paragraph-aware splitting with overlap
+    chunker.dart               paragraph-aware splitting, overlap, source spans
     ingest.dart                file reading, CSV to prose, batch embedding
 
   vector_search/               storing vectors and finding the nearest ones
@@ -556,7 +608,7 @@ reaching the index pulls in Flutter and the plain Dart VM cannot compile it.
 
 | file | what it covers |
 |---|---|
-| `document_indexing/chunker_test.dart` | paragraph splitting, overlap, edge cases |
+| `document_indexing/chunker_test.dart` | paragraph splitting, overlap, the size ceiling, source offsets incl. CRLF files |
 | `document_indexing/csv_to_prose_test.dart` | CSV rendered as labelled prose |
 | `vector_search/objectbox_store_test.dart` | search, per-source cap, persistence, the wrong-size-vector footgun |
 | `vector_search/padding_test.dart` | that zero-padding leaves cosine similarity exactly unchanged |

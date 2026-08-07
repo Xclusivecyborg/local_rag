@@ -138,6 +138,8 @@ class ObjectBoxStore {
         text: source[i].text,
         source: source[i].source,
         index: source[i].index,
+        start: source[i].start,
+        end: source[i].end,
         embedding: Vectors.pad(
           Vectors.normalise(embeddings[i]),
           storageDimension,
@@ -242,6 +244,8 @@ class _DimensionAdapter {
                   text: r.object.text,
                   source: r.object.source,
                   index: r.object.chunkIndex,
+                  start: r.object.chunkStart,
+                  end: r.object.chunkEnd,
                   embedding:
                       (r.object.vector ?? const <double>[]).take(modelDimension)
                           .toList(growable: false),
@@ -277,6 +281,8 @@ class _DimensionAdapter {
           ..text = r.text
           ..source = r.source
           ..chunkIndex = r.index
+          ..chunkStart = r.start
+          ..chunkEnd = r.end
           ..vector = r.embedding,
       );
 
@@ -288,6 +294,8 @@ class _DimensionAdapter {
           ..text = r.text
           ..source = r.source
           ..chunkIndex = r.index
+          ..chunkStart = r.start
+          ..chunkEnd = r.end
           ..vector = r.embedding,
       );
 
@@ -299,6 +307,8 @@ class _DimensionAdapter {
           ..text = r.text
           ..source = r.source
           ..chunkIndex = r.index
+          ..chunkStart = r.start
+          ..chunkEnd = r.end
           ..vector = r.embedding,
       );
 }

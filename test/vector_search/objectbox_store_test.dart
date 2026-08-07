@@ -198,6 +198,41 @@ void main() {
       expect(reopened.search(vec(1024, 0), k: 1).first.chunk.text, 'alpha');
     });
 
+    test('source spans survive the round trip', () async {
+      // The offsets are only worth persisting if they come back. A retrieved
+      // excerpt that cannot be located in its file is just a file name.
+      final store = await newStore(sub: 'spans');
+      store.addAll(
+        [
+          const Chunk(
+              text: 'alpha', source: 'a.md', index: 0, start: 12, end: 17),
+          const Chunk(
+              text: 'beta', source: 'b.md', index: 0, start: 340, end: 344),
+        ],
+        [vec(384, 0), vec(384, 1)],
+      );
+
+      final hit = store.search(vec(384, 1), k: 1).first.chunk;
+      expect(hit.text, 'beta');
+      expect(hit.start, 340);
+      expect(hit.end, 344);
+    });
+
+    test('an index written before spans existed reads back as zero', () async {
+      // Adding a property is a compatible ObjectBox migration: old rows come
+      // back with the default rather than failing to load. Worth pinning,
+      // because the alternative — a user's saved index refusing to open after
+      // an update — is the kind of thing you find out about from a user.
+      final store = await newStore(sub: 'nospans');
+      store.addAll(
+        [const Chunk(text: 'alpha', source: 'a.md', index: 0)],
+        [vec(384, 0)],
+      );
+      final hit = store.search(vec(384, 0), k: 1).first.chunk;
+      expect(hit.start, 0);
+      expect(hit.end, 0);
+    });
+
     test('opening a directory with no index returns null', () async {
       expect(await ObjectBoxStore.open(Directory('${tmp.path}/missing')), isNull);
     });

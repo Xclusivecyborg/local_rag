@@ -50,7 +50,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(2, 1231133224736568100),
     name: 'Vec1024',
-    lastPropertyId: const obx_int.IdUid(5, 819710150061258343),
+    lastPropertyId: const obx_int.IdUid(7, 5765034611246078284),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -85,6 +85,18 @@ final _entities = <obx_int.ModelEntity>[
         indexId: const obx_int.IdUid(1, 5557743889158588684),
         hnswParams: obx_int.ModelHnswParams(dimensions: 1024, distanceType: 2),
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 1656077116271628564),
+        name: 'chunkStart',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 5765034611246078284),
+        name: 'chunkEnd',
+        type: 6,
+        flags: 0,
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -92,7 +104,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 6104205050208575317),
     name: 'Vec384',
-    lastPropertyId: const obx_int.IdUid(5, 2228581636249651841),
+    lastPropertyId: const obx_int.IdUid(7, 1578045759179185673),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -127,6 +139,18 @@ final _entities = <obx_int.ModelEntity>[
         indexId: const obx_int.IdUid(2, 7004306443572010917),
         hnswParams: obx_int.ModelHnswParams(dimensions: 384, distanceType: 2),
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 3378848299283312988),
+        name: 'chunkStart',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 1578045759179185673),
+        name: 'chunkEnd',
+        type: 6,
+        flags: 0,
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -134,7 +158,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(4, 6041125975613433094),
     name: 'Vec768',
-    lastPropertyId: const obx_int.IdUid(5, 3686826584962964602),
+    lastPropertyId: const obx_int.IdUid(7, 7603846782850000844),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -168,6 +192,18 @@ final _entities = <obx_int.ModelEntity>[
         flags: 8,
         indexId: const obx_int.IdUid(3, 2891250784389538170),
         hnswParams: obx_int.ModelHnswParams(dimensions: 768, distanceType: 2),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 2522097427434034667),
+        name: 'chunkStart',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 7603846782850000844),
+        name: 'chunkEnd',
+        type: 6,
+        flags: 0,
       ),
     ],
     relations: <obx_int.ModelRelation>[],
@@ -282,12 +318,14 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final vectorOffset = object.vector == null
             ? null
             : fbb.writeListFloat32(object.vector!);
-        fbb.startTable(6);
+        fbb.startTable(8);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, textOffset);
         fbb.addOffset(2, sourceOffset);
         fbb.addInt64(3, object.chunkIndex);
         fbb.addOffset(4, vectorOffset);
+        fbb.addInt64(5, object.chunkStart);
+        fbb.addInt64(6, object.chunkEnd);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -312,7 +350,19 @@ obx_int.ModelDefinition getObjectBoxModel() {
           ..vector = const fb.ListReader<double>(
             fb.Float32Reader(),
             lazy: false,
-          ).vTableGetNullable(buffer, rootOffset, 12);
+          ).vTableGetNullable(buffer, rootOffset, 12)
+          ..chunkStart = const fb.Int64Reader().vTableGet(
+            buffer,
+            rootOffset,
+            14,
+            0,
+          )
+          ..chunkEnd = const fb.Int64Reader().vTableGet(
+            buffer,
+            rootOffset,
+            16,
+            0,
+          );
 
         return object;
       },
@@ -331,12 +381,14 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final vectorOffset = object.vector == null
             ? null
             : fbb.writeListFloat32(object.vector!);
-        fbb.startTable(6);
+        fbb.startTable(8);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, textOffset);
         fbb.addOffset(2, sourceOffset);
         fbb.addInt64(3, object.chunkIndex);
         fbb.addOffset(4, vectorOffset);
+        fbb.addInt64(5, object.chunkStart);
+        fbb.addInt64(6, object.chunkEnd);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -361,7 +413,19 @@ obx_int.ModelDefinition getObjectBoxModel() {
           ..vector = const fb.ListReader<double>(
             fb.Float32Reader(),
             lazy: false,
-          ).vTableGetNullable(buffer, rootOffset, 12);
+          ).vTableGetNullable(buffer, rootOffset, 12)
+          ..chunkStart = const fb.Int64Reader().vTableGet(
+            buffer,
+            rootOffset,
+            14,
+            0,
+          )
+          ..chunkEnd = const fb.Int64Reader().vTableGet(
+            buffer,
+            rootOffset,
+            16,
+            0,
+          );
 
         return object;
       },
@@ -380,12 +444,14 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final vectorOffset = object.vector == null
             ? null
             : fbb.writeListFloat32(object.vector!);
-        fbb.startTable(6);
+        fbb.startTable(8);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, textOffset);
         fbb.addOffset(2, sourceOffset);
         fbb.addInt64(3, object.chunkIndex);
         fbb.addOffset(4, vectorOffset);
+        fbb.addInt64(5, object.chunkStart);
+        fbb.addInt64(6, object.chunkEnd);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -410,7 +476,19 @@ obx_int.ModelDefinition getObjectBoxModel() {
           ..vector = const fb.ListReader<double>(
             fb.Float32Reader(),
             lazy: false,
-          ).vTableGetNullable(buffer, rootOffset, 12);
+          ).vTableGetNullable(buffer, rootOffset, 12)
+          ..chunkStart = const fb.Int64Reader().vTableGet(
+            buffer,
+            rootOffset,
+            14,
+            0,
+          )
+          ..chunkEnd = const fb.Int64Reader().vTableGet(
+            buffer,
+            rootOffset,
+            16,
+            0,
+          );
 
         return object;
       },
@@ -464,6 +542,16 @@ class Vec1024_ {
   static final vector = obx.QueryHnswProperty<Vec1024>(
     _entities[1].properties[4],
   );
+
+  /// See [Vec1024.chunkStart].
+  static final chunkStart = obx.QueryIntegerProperty<Vec1024>(
+    _entities[1].properties[5],
+  );
+
+  /// See [Vec1024.chunkEnd].
+  static final chunkEnd = obx.QueryIntegerProperty<Vec1024>(
+    _entities[1].properties[6],
+  );
 }
 
 /// [Vec384] entity fields to define ObjectBox queries.
@@ -492,6 +580,16 @@ class Vec384_ {
   static final vector = obx.QueryHnswProperty<Vec384>(
     _entities[2].properties[4],
   );
+
+  /// See [Vec384.chunkStart].
+  static final chunkStart = obx.QueryIntegerProperty<Vec384>(
+    _entities[2].properties[5],
+  );
+
+  /// See [Vec384.chunkEnd].
+  static final chunkEnd = obx.QueryIntegerProperty<Vec384>(
+    _entities[2].properties[6],
+  );
 }
 
 /// [Vec768] entity fields to define ObjectBox queries.
@@ -519,5 +617,15 @@ class Vec768_ {
   /// See [Vec768.vector].
   static final vector = obx.QueryHnswProperty<Vec768>(
     _entities[3].properties[4],
+  );
+
+  /// See [Vec768.chunkStart].
+  static final chunkStart = obx.QueryIntegerProperty<Vec768>(
+    _entities[3].properties[5],
+  );
+
+  /// See [Vec768.chunkEnd].
+  static final chunkEnd = obx.QueryIntegerProperty<Vec768>(
+    _entities[3].properties[6],
   );
 }

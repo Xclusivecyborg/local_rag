@@ -8,11 +8,21 @@ class StoredChunk {
     required this.source,
     required this.index,
     required this.embedding,
+    this.start = 0,
+    this.end = 0,
   });
 
   final String text;
   final String source;
   final int index;
+
+  /// Character span this chunk covers in [source], carried through from
+  /// `Chunk.start`/`Chunk.end`. Enough to highlight the passage an answer came
+  /// from. Zero on an index built before these were persisted, which is
+  /// indistinguishable from a chunk at the very start of a file — so treat
+  /// `start == end` as "not recorded" rather than as a real empty span.
+  final int start;
+  final int end;
 
   /// Stored pre-normalised to unit length, so cosine similarity at query time
   /// collapses to a plain dot product.

@@ -194,8 +194,13 @@ class RagController extends ChangeNotifier {
   ///
   /// | model                           | worst real | best off-topic | gate |
   /// |---------------------------------|------------|----------------|------|
-  /// | mxbai-embed-large:latest        | 0.478      | 0.500          | 0.47 |
-  /// | locusai/all-minilm-l6-v2:latest | 0.221      | 0.249          | 0.22 |
+  /// | mxbai-embed-large:latest        | 0.478      | 0.497          | 0.47 |
+  /// | locusai/all-minilm-l6-v2:latest | 0.227      | 0.256          | 0.22 |
+  ///
+  /// Re-measured after the chunker gained a hard size ceiling, which moved
+  /// some chunk boundaries. Both gates survived unchanged, and MiniLM's worst
+  /// real question improved from 0.221 — a chunk that is no longer allowed to
+  /// run over is a chunk about slightly fewer things.
   ///
   /// **A threshold is only valid for the chunk size it was measured at.** These
   /// were 0.57 and 0.29 when chunks were 1200 characters. Halving the chunk
