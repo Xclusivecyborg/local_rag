@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:local_rag/question_answering/rag_controller.dart';
+import 'package:local_rag/models/message_turn.dart';
 import 'package:local_rag/vector_search/stored_chunk.dart';
 
 class Citations extends StatelessWidget {
@@ -18,8 +18,10 @@ class Citations extends StatelessWidget {
         dense: true,
         shape: const Border(),
         collapsedShape: const Border(),
-        title: Text('${sources.length} retrieved chunks',
-            style: TextStyle(fontSize: 11.5, color: theme.hintColor)),
+        title: Text(
+          '${sources.length} retrieved chunks',
+          style: TextStyle(fontSize: 11.5, color: theme.hintColor),
+        ),
         children: [
           for (var i = 0; i < sources.length; i++)
             Padding(
@@ -43,7 +45,10 @@ class Citations extends StatelessWidget {
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        fontSize: 11, color: theme.hintColor, height: 1.45),
+                      fontSize: 11,
+                      color: theme.hintColor,
+                      height: 1.45,
+                    ),
                   ),
                 ],
               ),
@@ -72,8 +77,7 @@ class SourceBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.functions,
-                size: 12, color: theme.colorScheme.tertiary),
+            Icon(Icons.functions, size: 12, color: theme.colorScheme.tertiary),
             const SizedBox(width: 5),
             Flexible(
               child: Text(
@@ -95,8 +99,8 @@ class SourceBadge extends StatelessWidget {
     final label = turn.grounded
         ? 'from your documents'
         : (score == null
-            ? 'general knowledge'
-            : 'general knowledge · nothing relevant found');
+              ? 'general knowledge'
+              : 'general knowledge · nothing relevant found');
 
     return Padding(
       padding: const EdgeInsets.only(top: 6, left: 2),
@@ -104,7 +108,9 @@ class SourceBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            turn.grounded ? Icons.description_outlined : Icons.psychology_alt_outlined,
+            turn.grounded
+                ? Icons.description_outlined
+                : Icons.psychology_alt_outlined,
             size: 12,
             color: turn.grounded ? theme.colorScheme.primary : theme.hintColor,
           ),
@@ -113,10 +119,12 @@ class SourceBadge extends StatelessWidget {
             score == null
                 ? label
                 : '$label · best match ${score.toStringAsFixed(2)} '
-                    '(gate ${turn.gate?.toStringAsFixed(2) ?? '—'})',
+                      '(gate ${turn.gate?.toStringAsFixed(2) ?? '—'})',
             style: TextStyle(
               fontSize: 10.5,
-              color: turn.grounded ? theme.colorScheme.primary : theme.hintColor,
+              color: turn.grounded
+                  ? theme.colorScheme.primary
+                  : theme.hintColor,
             ),
           ),
         ],

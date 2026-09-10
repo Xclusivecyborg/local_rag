@@ -16,9 +16,7 @@ class Transcript extends StatelessWidget {
     if (c.turns.isEmpty && !c.isStreaming) {
       return EmptyState(controller: c);
     }
-    // One SelectionArea around the whole transcript, rather than a
-    // SelectableText per bubble. Rendered Markdown is many separate widgets,
-    // and per-widget selection would stop dead at every bold run.
+
     return SelectionArea(
       child: ListView.builder(
         controller: scroll,

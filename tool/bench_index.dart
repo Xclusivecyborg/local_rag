@@ -14,6 +14,7 @@ import 'dart:io';
 
 import 'package:local_rag/document_indexing/chunker.dart';
 import 'package:local_rag/document_indexing/ingest.dart';
+import 'package:local_rag/models/ingest_progress.dart';
 import 'package:local_rag/ollama/ollama_client.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 

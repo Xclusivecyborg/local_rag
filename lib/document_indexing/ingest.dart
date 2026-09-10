@@ -1,9 +1,12 @@
 import 'dart:io';
 
-import 'chunker.dart';
-import 'package:local_rag/table_arithmetic/csv_table.dart';
+import 'package:local_rag/models/ingest_progress.dart';
+import 'package:local_rag/models/ingest_result.dart';
 import 'package:local_rag/ollama/ollama_client.dart';
+import 'package:local_rag/table_arithmetic/csv_table.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
+
+import 'chunker.dart';
 
 /// What one ingest produced: an embedded index for prose, and the structured
 /// tables for anything that was actually tabular.
@@ -11,11 +14,6 @@ import 'package:local_rag/vector_search/objectbox_store.dart';
 /// Both, not either. A CSV is embedded *and* kept as a table — retrieval
 /// answers "which supplier makes Heritage shoes", the table answers "what was
 /// January's revenue", and neither can do the other's job.
-class IngestResult {
-  const IngestResult(this.store, this.tables);
-  final ObjectBoxStore store;
-  final List<CsvTable> tables;
-}
 
 /// Builds the index the embedded vectors will go into.
 ///
@@ -23,19 +21,8 @@ class IngestResult {
 /// the index lives — it produces chunks and vectors, and the caller decides
 /// which directory they land in. Async because opening an ObjectBox store
 /// touches the filesystem.
-typedef IndexFactory = Future<ObjectBoxStore> Function(
-  String embeddingModel,
-  int dimension,
-);
-
-class IngestProgress {
-  const IngestProgress(this.stage, {this.done = 0, this.total = 0});
-  final String stage;
-  final int done;
-  final int total;
-
-  double? get fraction => total == 0 ? null : done / total;
-}
+typedef IndexFactory =
+    Future<ObjectBoxStore> Function(String embeddingModel, int dimension);
 
 const Set<String> kSupportedExtensions = {
   '.txt',
@@ -70,23 +57,22 @@ class Ingestor {
       try {
         text = await file.readAsString();
       } on Object catch (e) {
-        // A single unreadable file should not abort the whole ingest.
         report?.call(IngestProgress('Skipped $name ($e)'));
         continue;
       }
       if (ext == '.csv') {
-        // Keep the structure before discarding it. The prose form is for
-        // semantic lookup; the table is the only thing that can do arithmetic.
         final table = CsvTable.parse(text, source: name);
         if (table.rowCount > 0) tables.add(table);
         text = csvToProse(text);
       }
-      chunks.addAll(chunkDocument(
-        text,
-        source: name,
-        targetChars: targetChars,
-        overlapChars: overlapChars,
-      ));
+      chunks.addAll(
+        chunkDocument(
+          text,
+          source: name,
+          targetChars: targetChars,
+          overlapChars: overlapChars,
+        ),
+      );
     }
 
     if (chunks.isEmpty) {
@@ -102,9 +88,8 @@ class Ingestor {
     final vectors = await ollama.embed(
       model: embeddingModel,
       input: [for (final c in chunks) c.text],
-      onProgress: (done, total) => report?.call(
-        IngestProgress('Embedding', done: done, total: total),
-      ),
+      onProgress: (done, total) =>
+          report?.call(IngestProgress('Embedding', done: done, total: total)),
     );
 
     final dimension = vectors.first.length;
@@ -114,11 +99,13 @@ class Ingestor {
     final tableNote = tables.isEmpty
         ? ''
         : ', ${tables.fold<int>(0, (a, t) => a + t.rowCount)} table rows';
-    report?.call(IngestProgress(
-      'Indexed ${store.size} chunks from ${files.length} file(s)$tableNote',
-      done: chunks.length,
-      total: chunks.length,
-    ));
+    report?.call(
+      IngestProgress(
+        'Indexed ${store.size} chunks from ${files.length} file(s)$tableNote',
+        done: chunks.length,
+        total: chunks.length,
+      ),
+    );
     return IngestResult(store, tables);
   }
 }

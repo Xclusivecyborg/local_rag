@@ -16,8 +16,6 @@ class Composer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = controller;
-    // An index is optional — the assistant is still a perfectly good
-    // assistant without one.
     final enabled = c.canChat && !c.isStreaming;
 
     return Container(
@@ -26,7 +24,6 @@ class Composer extends StatelessWidget {
         border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
             child: TextField(
@@ -38,12 +35,14 @@ class Composer extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: c.canChat
                     ? (c.hasIndex
-                        ? 'Ask about your documents, or anything else…'
-                        : 'Say something…')
+                          ? 'Ask about your documents, or anything else…'
+                          : 'Say something…')
                     : 'No chat model available',
                 border: const OutlineInputBorder(),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
               ),
             ),
           ),

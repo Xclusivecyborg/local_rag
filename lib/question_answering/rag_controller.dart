@@ -2,57 +2,21 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:local_rag/models/ingest_progress.dart';
+import 'package:local_rag/models/message_turn.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:local_rag/table_arithmetic/csv_table.dart';
 import 'package:local_rag/document_indexing/ingest.dart';
 import 'package:local_rag/ollama/ollama_client.dart';
 import 'query_condenser.dart';
+import 'rag_prompts.dart';
 import 'package:local_rag/table_arithmetic/table_query_planner.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 import 'package:local_rag/ollama/ollama_launcher.dart';
 import 'package:local_rag/vector_search/stored_chunk.dart';
 
-class Turn {
-  Turn({
-    required this.role,
-    required this.content,
-    this.sources = const [],
-    this.grounded = false,
-    this.topScore,
-    this.gate,
-    this.computed,
-    this.searchedFor,
-  });
 
-  final String role; // 'user' | 'assistant'
-  final String content;
-  final List<ScoredChunk> sources;
-
-  /// Whether document excerpts were injected for this answer. When false the
-  /// model answered from its own knowledge.
-  final bool grounded;
-
-  /// Best retrieval score seen for this turn, whether or not it cleared the
-  /// gate. Surfaced in the UI so the threshold is observable, not magic.
-  final double? topScore;
-
-  /// The threshold [topScore] was judged against. Stored per turn rather than
-  /// read from the controller, because the gate is per embedding model and the
-  /// user can change models mid-conversation — displaying today's gate next to
-  /// yesterday's score would be quietly wrong.
-  final double? gate;
-
-  /// Set when this answer came from computing over a table instead of from
-  /// retrieved excerpts. The two are mutually exclusive by construction.
-  final QueryResult? computed;
-
-  /// What was actually embedded, when it differed from what the user typed.
-  /// Shown in the UI so a surprising retrieval can be traced to the rewrite.
-  final String? searchedFor;
-
-  bool get isComputed => computed != null;
-}
 
 class RagController extends ChangeNotifier {
   RagController({OllamaClient? client, OllamaLauncher? launcher})
@@ -500,53 +464,6 @@ class RagController extends ChangeNotifier {
   /// the model's context window.
   static const int historyTurns = 8;
 
-  static const _aggregationRule = '''
-- If a question requires adding up, counting, or averaging values spread across
-  many records, do NOT estimate from the excerpts. Say they are a partial
-  sample and that the true total cannot be computed from them.''';
-
-  /// The system prompt changes shape depending on whether context was
-  /// retrieved. This is what makes the assistant conversational: with no
-  /// excerpts it is simply a normal assistant, so "Hello" gets a greeting
-  /// rather than a refusal or a hallucinated document lookup.
-  String _systemPrompt({required bool grounded, bool computed = false}) {
-    final p = StringBuffer('''
-You are a helpful assistant specializing in answering Questions about Stridewell Footwear Commpany.
-
-- Chat naturally. Greetings, small talk and general questions get normal,
-  conversational answers.
-- Answer general-knowledge questions from what you already know.
-- Never invent facts about the user's company, its staff, policies or numbers.
-  If you are asked something company-specific and no excerpts were provided,
-  say you do not have that document rather than guessing.''');
-
-    if (computed) {
-      // No hedging clause here, and no aggregation rule. The figure was
-      // computed over every matching row, so telling the model to warn about
-      // partial samples would make it undermine a number that is exact.
-      p.write('''
-
-
-A COMPUTED RESULT is included with this question. It was calculated directly
-over every row of the user's data, not sampled or estimated, so it is exact.
-
-- Report the figure as given. Do not recompute it, round it, or adjust it.
-- State what it covers (the period, any filters, how many rows).
-- Do not warn that it might be incomplete. It is not.''');
-      return p.toString();
-    }
-
-    if (grounded) {
-      p.write('''
-
-
-Excerpts from the user's documents are included with this question. Prefer them
-for anything company-specific, and name the file you used.''');
-      if (strictGrounding) p.write('\n$_aggregationRule');
-    }
-    return p.toString();
-  }
-
   /// The last few turns, flattened, for resolving follow-up questions.
   List<String> _recentHistory() {
     final prior = turns.length <= 1
@@ -577,22 +494,6 @@ for anything company-specific, and name the file you used.''');
       return result;
     }
     return null;
-  }
-
-  String _withComputed(String question, QueryResult result) =>
-      'COMPUTED RESULT (exact, from the full dataset):\n'
-      '${result.toPromptBlock()}\nQUESTION: $question';
-
-  String _withContext(String question, List<ScoredChunk> hits) {
-    final ctx = StringBuffer();
-    for (var i = 0; i < hits.length; i++) {
-      final h = hits[i];
-      ctx.writeln('[${i + 1}] ${h.chunk.source} '
-          '(chunk ${h.chunk.index}, score ${h.score.toStringAsFixed(3)})');
-      ctx.writeln(h.chunk.text);
-      ctx.writeln();
-    }
-    return 'EXCERPTS FROM YOUR DOCUMENTS:\n$ctx\nQUESTION: $question';
   }
 
   Future<void> ask(String question) async {
@@ -683,8 +584,14 @@ for anything company-specific, and name the file you used.''');
         : prior;
 
     final messages = <ChatMessage>[
-      ChatMessage('system',
-          _systemPrompt(grounded: grounded, computed: computed != null)),
+      ChatMessage(
+        'system',
+        RagPrompts.system(
+          grounded: grounded,
+          strictGrounding: strictGrounding,
+          computed: computed != null,
+        ),
+      ),
       // Only clean turns are replayed. Retrieved excerpts attach to the
       // current question and are never written into history — otherwise
       // stale context from three questions ago keeps steering the answer,
@@ -693,9 +600,9 @@ for anything company-specific, and name the file you used.''');
       ChatMessage(
         'user',
         computed != null
-            ? _withComputed(question, computed)
+            ? RagPrompts.withComputed(question, computed)
             : grounded
-                ? _withContext(question, hits)
+                ? RagPrompts.withContext(question, hits)
                 : question,
       ),
     ];

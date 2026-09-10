@@ -95,8 +95,8 @@ Heritage line returns window''';
       const ChatMessage('system', _system),
       if (history.isNotEmpty)
         ChatMessage('user',
-            'Conversation so far:\n${history.join('\n')}\n\nQ: $trimmed'),
-      if (history.isEmpty) ChatMessage('user', 'Q: $trimmed'),
+            'Conversation so far:\n${history.join('\n')}\n\nQ: $trimmed')
+      else ChatMessage('user', 'Q: $trimmed'),
     ];
 
     try {
@@ -168,6 +168,6 @@ Heritage line returns window''';
 
   static const Set<String> _stopwords = {
     'the', 'and', 'for', 'with', 'what', 'how', 'why', 'who', 'was', 'are',
-    'you', 'your', 'this', 'that', 'from', 'about', 'get', 'can', 'does',
+    'you', 'your', 'this', 'that', 'from', 'about', 'get', 'can', 'does', 
   };
 }

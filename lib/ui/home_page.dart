@@ -48,19 +48,14 @@ class _HomePageState extends State<HomePage> {
   Future<void> _pickKnowledgeBase() async {
     final String? path;
     try {
-      // Static in file_picker 11.x (it was FilePicker.platform.* before).
-      // Requires com.apple.security.files.user-selected.read-only in both
-      // entitlements files — the plugin reads that key directly and refuses
-      // without it, whether or not the app is sandboxed.
       path = await FilePicker.getDirectoryPath(
         dialogTitle: 'Choose a folder of documents',
       );
     } on PlatformException catch (e) {
-      // Without this the button is simply dead. An exception thrown here
-      // escapes as an unhandled async error, which is visible in a debugger
-      // and nowhere else — so a release build shows the user nothing at all.
-      _c.reportError('Could not open the folder picker.\n'
-          '${e.message ?? e.code}');
+      _c.reportError(
+        'Could not open the folder picker.\n'
+        '${e.message ?? e.code}',
+      );
       return;
     }
     if (path == null) return; // user cancelled
@@ -84,7 +79,9 @@ class _HomePageState extends State<HomePage> {
           Expanded(
             child: Column(
               children: [
-                Expanded(child: Transcript(controller: _c, scroll: _scroll)),
+                Expanded(
+                  child: Transcript(controller: _c, scroll: _scroll),
+                ),
                 Composer(controller: _c, input: _input, onSend: _send),
               ],
             ),

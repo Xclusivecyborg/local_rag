@@ -10,11 +10,7 @@ import 'dart:convert';
 /// So structured files get parsed twice: once into prose for semantic lookup,
 /// and once into this, for arithmetic that is actually correct.
 class CsvTable {
-  CsvTable({
-    required this.source,
-    required this.columns,
-    required this.rows,
-  });
+  CsvTable({required this.source, required this.columns, required this.rows});
 
   final String source;
   final List<CsvColumn> columns;
@@ -51,9 +47,9 @@ class CsvTable {
 
   /// Distinct non-empty values of a text column, preserving original casing.
   Set<String> distinctValues(CsvColumn col) => <String>{
-        for (var r = 0; r < rows.length; r++)
-          if (cell(r, col).isNotEmpty) cell(r, col),
-      };
+    for (var r = 0; r < rows.length; r++)
+      if (cell(r, col).isNotEmpty) cell(r, col),
+  };
 
   /// Parses [raw] and infers a kind per column.
   ///
@@ -90,10 +86,10 @@ class CsvTable {
       final kind = !sawValue
           ? ColumnKind.text
           : allDates
-              ? ColumnKind.date
-              : allNumeric
-                  ? ColumnKind.number
-                  : ColumnKind.text;
+          ? ColumnKind.date
+          : allNumeric
+          ? ColumnKind.number
+          : ColumnKind.text;
       columns.add(CsvColumn(header[c].trim(), c, kind));
     }
 
@@ -139,8 +135,7 @@ class CsvTable {
       } else {
         value = switch (query.aggregate) {
           Aggregate.sum => values.reduce((a, b) => a + b),
-          Aggregate.average =>
-            values.reduce((a, b) => a + b) / values.length,
+          Aggregate.average => values.reduce((a, b) => a + b) / values.length,
           Aggregate.min => values.reduce((a, b) => a < b ? a : b),
           Aggregate.max => values.reduce((a, b) => a > b ? a : b),
           Aggregate.count => values.length,
@@ -179,39 +174,41 @@ class CsvTable {
   }
 
   Map<String, dynamic> toJson() => {
-        'source': source,
-        'columns': [
-          for (final c in columns)
-            {'name': c.name, 'index': c.index, 'kind': c.kind.name}
-        ],
-        'rows': rows,
-      };
+    'source': source,
+    'columns': [
+      for (final c in columns)
+        {'name': c.name, 'index': c.index, 'kind': c.kind.name},
+    ],
+    'rows': rows,
+  };
 
   factory CsvTable.fromJson(Map<String, dynamic> json) => CsvTable(
-        source: json['source'] as String,
-        columns: [
-          for (final c in (json['columns'] as List).cast<Map<String, dynamic>>())
-            CsvColumn(
-              c['name'] as String,
-              c['index'] as int,
-              ColumnKind.values.byName(c['kind'] as String),
-            )
-        ],
-        rows: [
-          for (final r in (json['rows'] as List))
-            (r as List).map((e) => e as String).toList()
-        ],
-      );
+    source: json['source'] as String,
+    columns: [
+      for (final c in (json['columns'] as List).cast<Map<String, dynamic>>())
+        CsvColumn(
+          c['name'] as String,
+          c['index'] as int,
+          ColumnKind.values.byName(c['kind'] as String),
+        ),
+    ],
+    rows: [
+      for (final r in (json['rows'] as List))
+        (r as List).map((e) => e as String).toList(),
+    ],
+  );
 
-  static String encodeAll(List<CsvTable> tables) =>
-      jsonEncode({'version': 1, 'tables': [for (final t in tables) t.toJson()]});
+  static String encodeAll(List<CsvTable> tables) => jsonEncode({
+    'version': 1,
+    'tables': [for (final t in tables) t.toJson()],
+  });
 
   static List<CsvTable> decodeAll(String raw) {
     try {
       final json = jsonDecode(raw) as Map<String, dynamic>;
       return [
         for (final t in (json['tables'] as List).cast<Map<String, dynamic>>())
-          CsvTable.fromJson(t)
+          CsvTable.fromJson(t),
       ];
     } on Object {
       return const []; // corrupt or older schema; caller re-indexes
@@ -333,8 +330,10 @@ class QueryResult {
   String toPromptBlock() {
     final buffer = StringBuffer()
       ..writeln('${query.describe()}: $formattedValue')
-      ..writeln('Computed over $matchedRows matching row(s) '
-          'out of $totalRows in $source.');
+      ..writeln(
+        'Computed over $matchedRows matching row(s) '
+        'out of $totalRows in $source.',
+      );
     final g = groups;
     if (g != null && g.isNotEmpty) {
       buffer.writeln('Breakdown:');

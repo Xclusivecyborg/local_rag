@@ -34,8 +34,6 @@ class Sidebar extends StatelessWidget {
             const SizedBox(height: 28),
             ConnectionCard(controller: c),
             const SizedBox(height: 20),
-            // Connection failures are already spelled out by ConnectionCard;
-            // this is for everything else (e.g. a stale index).
             if (c.isConnected && c.error != null) ...[
               ErrorCard(message: c.error!),
               const SizedBox(height: 20),
@@ -55,9 +53,6 @@ class Sidebar extends StatelessWidget {
               onChanged: c.setEmbedModel,
               emptyHint: 'Run: ollama pull locusai/all-minilm-l6-v2',
             ),
-            // The retrieval gate is per model. On an unmeasured one we fall
-            // back to a permissive default, which is a guess — say so, rather
-            // than let retrieval quietly misbehave.
             if (c.embedModel != null &&
                 !RagController.hasMeasuredThreshold(c.embedModel)) ...[
               const SizedBox(height: 6),
