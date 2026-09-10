@@ -33,12 +33,12 @@ Future<void> _run() async {
 
   stdout.writeln('Indexing $kbPath …');
   final sw = Stopwatch()..start();
-  final files = await collectFiles(dir);
+  final files = await findSupportedFiles(dir);
   final index = await buildIndex(
     ollama: ollama,
     files: files,
     embeddingModel: embedModel,
-    report: (p) {
+    onProgress: (p) {
       if (p.total > 0 && p.done % 32 == 0) {
         stdout.write('\r  ${p.stage} ${p.done}/${p.total}   ');
       }

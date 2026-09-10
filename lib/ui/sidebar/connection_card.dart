@@ -29,7 +29,7 @@ class ConnectionCard extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                c.connectStatus ?? 'Working…',
+                c.statusMessage ?? 'Working…',
                 style: const TextStyle(fontSize: 12),
               ),
             ),

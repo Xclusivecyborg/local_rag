@@ -16,15 +16,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final RagController _c = RagController();
+  final RagController _controller = RagController();
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _c.addListener(_onChanged);
-    _c.init();
+    _controller.addListener(_onChanged);
+    _controller.connect();
   }
 
   void _onChanged() {
@@ -38,8 +38,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _c.removeListener(_onChanged);
-    _c.dispose();
+    _controller.removeListener(_onChanged);
+    _controller.dispose();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -52,21 +52,21 @@ class _HomePageState extends State<HomePage> {
         dialogTitle: 'Choose a folder of documents',
       );
     } on PlatformException catch (e) {
-      _c.reportError(
+      _controller.reportError(
         'Could not open the folder picker.\n'
         '${e.message ?? e.code}',
       );
       return;
     }
     if (path == null) return; // user cancelled
-    await _c.indexDirectory(Directory(path));
+    await _controller.indexDirectory(Directory(path));
   }
 
   void _send() {
     final text = _input.text.trim();
     if (text.isEmpty) return;
     _input.clear();
-    _c.ask(text);
+    _controller.ask(text);
   }
 
   @override
@@ -74,15 +74,15 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: Row(
         children: [
-          Sidebar(controller: _c, onPick: _pickKnowledgeBase),
+          Sidebar(controller: _controller, onPick: _pickKnowledgeBase),
           const VerticalDivider(width: 1),
           Expanded(
             child: Column(
               children: [
                 Expanded(
-                  child: Transcript(controller: _c, scroll: _scroll),
+                  child: Transcript(controller: _controller, scroll: _scroll),
                 ),
-                Composer(controller: _c, input: _input, onSend: _send),
+                Composer(controller: _controller, input: _input, onSend: _send),
               ],
             ),
           ),

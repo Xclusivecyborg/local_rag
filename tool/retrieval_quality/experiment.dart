@@ -24,14 +24,14 @@ const String embedModel = 'mxbai-embed-large';
 Future<BenchIndex> build(
   OllamaClient ollama,
   List<File> files, {
-  int targetChars = kDefaultTargetChars,
+  int chunkSize = defaultChunkSize,
 }) async {
   final chunks = <Chunk>[];
   for (final f in files) {
     final name = f.uri.pathSegments.last;
     var text = await f.readAsString();
     if (name.endsWith('.csv')) text = csvToProse(text);
-    chunks.addAll(chunkDocument(text, source: name, targetChars: targetChars));
+    chunks.addAll(chunkDocument(text, source: name, chunkSize: chunkSize));
   }
   return indexChunks(
       ollama: ollama, chunks: chunks, embeddingModel: embedModel);
@@ -78,7 +78,7 @@ String pct(int h, int n) => '${(h / n * 100).toStringAsFixed(0)}%';
 Future<void> _run() async {
   final ollama = OllamaClient();
   final dir = Directory('sample_kb');
-  final allFiles = await collectFiles(dir);
+  final allFiles = await findSupportedFiles(dir);
   final proseOnly =
       allFiles.where((f) => !f.path.endsWith('.csv')).toList();
 

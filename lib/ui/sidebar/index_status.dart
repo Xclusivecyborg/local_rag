@@ -8,7 +8,7 @@ class IndexingStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = controller.progress;
+    final p = controller.indexingProgress;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -32,8 +32,8 @@ class IndexingStatus extends StatelessWidget {
 /// you are about to get can be trusted. An index built by a different model
 /// from the one now selected is the failure this card is here to make visible.
 class IndexedStatus extends StatelessWidget {
-  const IndexedStatus({super.key, required this.store});
-  final ObjectBoxStore store;
+  const IndexedStatus({super.key, required this.index});
+  final ObjectBoxStore index;
 
   @override
   Widget build(BuildContext context) {
@@ -49,14 +49,14 @@ class IndexedStatus extends StatelessWidget {
         children: [
           const Icon(Icons.check_circle, size: 15, color: Colors.greenAccent),
           const SizedBox(height: 6),
-          Text('${store.size} chunks indexed',
+          Text('${index.size} chunks indexed',
               style: const TextStyle(
                   fontSize: 12.5, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           Text(
-            '${store.sources.length} file(s) · ${store.dimension}-d\n'
-            '${store.embeddingModel}\n'
-            'ObjectBox HNSW${store.storageDimension != store.dimension ? ' · stored at ${store.storageDimension}-d' : ''}',
+            '${index.sources.length} file(s) · ${index.dimension}-d\n'
+            '${index.embeddingModel}\n'
+            'ObjectBox HNSW${index.storageDimension != index.dimension ? ' · stored at ${index.storageDimension}-d' : ''}',
             style: TextStyle(fontSize: 11, color: theme.hintColor, height: 1.5),
           ),
         ],

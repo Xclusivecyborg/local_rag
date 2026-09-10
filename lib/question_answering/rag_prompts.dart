@@ -69,8 +69,10 @@ for anything company-specific, and name the file you used.''';
     final ctx = StringBuffer();
     for (var i = 0; i < hits.length; i++) {
       final h = hits[i];
-      ctx.writeln('[${i + 1}] ${h.chunk.source} '
-          '(chunk ${h.chunk.index}, score ${h.score.toStringAsFixed(3)})');
+      ctx.writeln(
+        '[${i + 1}] ${h.chunk.source} '
+        '(chunk ${h.chunk.index}, score ${h.score.toStringAsFixed(3)})',
+      );
       ctx.writeln(h.chunk.text);
       ctx.writeln();
     }

@@ -15,8 +15,8 @@ void main() {
       final chunks = chunkDocument(
         paragraph * 10,
         source: 'long.md',
-        targetChars: 500,
-        overlapChars: 100,
+        chunkSize: 500,
+        chunkOverlap: 100,
       );
       expect(chunks.length, greaterThan(1));
     });
@@ -28,8 +28,8 @@ void main() {
       final chunks = chunkDocument(
         blocks,
         source: 'facts.md',
-        targetChars: 300,
-        overlapChars: 80,
+        chunkSize: 300,
+        chunkOverlap: 80,
       );
       expect(chunks.length, greaterThan(1));
       for (var i = 1; i < chunks.length; i++) {
@@ -43,7 +43,7 @@ void main() {
       final chunks = chunkDocument(
         List.generate(20, (i) => 'Paragraph $i. ${'x' * 200}').join('\n\n'),
         source: 'doc.txt',
-        targetChars: 400,
+        chunkSize: 400,
       );
       expect(
         chunks.map((c) => c.index).toList(),
@@ -69,7 +69,7 @@ void main() {
     // This used to be a target rather than a ceiling. The overlap tail was
     // written into the buffer the moment a chunk was emitted, and the next
     // block went in with no size check, so a chunk could reach
-    // targetChars + overlapChars. Measured before the fix: 667 against a 600
+    // chunkSize + chunkOverlap. Measured before the fix: 667 against a 600
     // target on the real corpus, and 802 on input with nothing to break on.
     void expectWithin(List<Chunk> chunks, int limit, String what) {
       for (final c in chunks) {
@@ -82,7 +82,7 @@ void main() {
       final doc = List.generate(
               40, (i) => 'Paragraph $i. ${'word ' * (10 + i % 40)}')
           .join('\n\n');
-      expectWithin(chunkDocument(doc, source: 'a.md', targetChars: 600),
+      expectWithin(chunkDocument(doc, source: 'a.md', chunkSize: 600),
           600, 'prose');
     });
 
@@ -91,7 +91,7 @@ void main() {
       final para =
           ('Stridewell Footwear Limited is a Nigerian footwear retailer. ' * 25)
               .trim();
-      final chunks = chunkDocument(para, source: 'a.md', targetChars: 600);
+      final chunks = chunkDocument(para, source: 'a.md', chunkSize: 600);
       expect(chunks.length, greaterThan(1), reason: 'must not give up whole');
       expectWithin(chunks, 600, 'single paragraph');
     });
@@ -100,7 +100,7 @@ void main() {
       // No blank lines, no sentence punctuation, no spaces. Only the hard cut
       // is left, and it used to emit 802 characters against a 600 target.
       final chunks =
-          chunkDocument('x' * 1500, source: 'a.md', targetChars: 600);
+          chunkDocument('x' * 1500, source: 'a.md', chunkSize: 600);
       expectWithin(chunks, 600, 'unbreakable run');
     });
 
@@ -111,7 +111,7 @@ void main() {
           .map((s) => s.trim())
           .join('\n\n');
       final chunks = chunkDocument(doc,
-          source: 'a.md', targetChars: 600, overlapChars: 200);
+          source: 'a.md', chunkSize: 600, chunkOverlap: 200);
       expectWithin(chunks, 600, 'tight blocks');
     });
   });
@@ -120,7 +120,7 @@ void main() {
     test('start points at the chunk\'s first real character', () {
       const doc = 'First paragraph here.\n\nSecond paragraph here.';
       final chunks =
-          chunkDocument(doc, source: 'a.md', targetChars: 25, overlapChars: 0);
+          chunkDocument(doc, source: 'a.md', chunkSize: 25, chunkOverlap: 0);
       expect(chunks.length, greaterThan(1));
       expect(doc.substring(chunks[0].start), startsWith('First paragraph'));
       expect(doc.substring(chunks[1].start), startsWith('Second paragraph'));
@@ -130,7 +130,7 @@ void main() {
       final doc = List.generate(30, (i) => 'Fact number $i about the business.')
           .join('\n\n');
       final chunks = chunkDocument(doc,
-          source: 'a.md', targetChars: 300, overlapChars: 0);
+          source: 'a.md', chunkSize: 300, chunkOverlap: 0);
       for (final c in chunks) {
         // Exact span, but the text inside it is rejoined with a blank line,
         // so compare with whitespace collapsed rather than byte for byte.
@@ -143,7 +143,7 @@ void main() {
     test('offsets are ascending and inside the document', () {
       final doc = List.generate(40, (i) => 'Paragraph $i. ${'word ' * 20}')
           .join('\n\n');
-      final chunks = chunkDocument(doc, source: 'a.md', targetChars: 400);
+      final chunks = chunkDocument(doc, source: 'a.md', chunkSize: 400);
       for (var i = 0; i < chunks.length; i++) {
         expect(chunks[i].start, lessThan(chunks[i].end));
         expect(chunks[i].end, lessThanOrEqualTo(doc.length));
@@ -162,7 +162,7 @@ void main() {
       final windows = unix.replaceAll('\n', '\r\n');
 
       final chunks = chunkDocument(windows,
-          source: 'a.md', targetChars: 25, overlapChars: 0);
+          source: 'a.md', chunkSize: 25, chunkOverlap: 0);
       expect(chunks.length, 3);
       for (final c in chunks) {
         expect(windows.substring(c.start, c.end), c.text,

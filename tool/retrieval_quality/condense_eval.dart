@@ -58,7 +58,7 @@ Future<void> _run() async {
   stdout.writeln('Indexing sample_kb …');
   final index = await buildIndex(
     ollama: ollama,
-    files: await collectFiles(Directory('sample_kb')),
+    files: await findSupportedFiles(Directory('sample_kb')),
     embeddingModel: embedModel,
   );
   final store = index.store;

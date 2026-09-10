@@ -159,7 +159,7 @@ Future<void> _run() async {
     exit(1);
   }
 
-  final files = await collectFiles(Directory('sample_kb'));
+  final files = await findSupportedFiles(Directory('sample_kb'));
   final n = evalSet.length;
   String pct(int h) => '${(h / n * 100).round()}%';
   String f3(double d) => d.toStringAsFixed(3);

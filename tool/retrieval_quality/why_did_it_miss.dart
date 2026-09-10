@@ -17,7 +17,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_rag/document_indexing/ingest.dart';
 import 'package:local_rag/ollama/ollama_client.dart';
-import 'package:local_rag/question_answering/rag_controller.dart';
+import 'package:local_rag/question_answering/model_preferences.dart';
+import 'package:local_rag/question_answering/retrieval_settings.dart';
 import '../bench_index.dart';
 
 /// Variants of the same information need. If one form retrieves and another
@@ -43,7 +44,7 @@ Future<void> _run() async {
     return;
   }
 
-  final model = RagController.preferredEmbedModels.first;
+  final model = ModelPreferences.embedding.first;
   final installed = (await ollama.listModels()).map((m) => m.name).toSet();
   final resolved = installed.contains(model) ? model : '$model:latest';
 
@@ -54,19 +55,19 @@ Future<void> _run() async {
           .toList() ??
       defaultProbes;
 
-  final files = await collectFiles(Directory('sample_kb'));
+  final files = await findSupportedFiles(Directory('sample_kb'));
   final index =
       await buildIndex(ollama: ollama, files: files, embeddingModel: resolved);
   final store = index.store;
 
-  final gate = RagController.thresholdFor(resolved);
+  final gate = RetrievalSettings.thresholdFor(resolved);
   stdout.writeln('model: $resolved   gate: $gate   chunks: ${store.size}');
   stdout.writeln('chunks per file: ${store.chunkCountsBySource}');
 
   for (final q in probes) {
     final qv = await ollama.embedOne(model: resolved, input: q);
     final hits = store.search(qv, k: 5,
-        maxPerSource: RagController.maxChunksPerSource);
+        maxPerSource: RetrievalSettings.maxChunksPerSource);
     final best = hits.isEmpty ? 0.0 : hits.first.score;
     final verdict = best >= gate ? 'RETRIEVES' : 'BLOCKED  ';
 

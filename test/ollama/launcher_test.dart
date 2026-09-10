@@ -87,7 +87,7 @@ void main() {
 
     expect(outcome, LaunchOutcome.notInstalled);
     expect(l.resolvedPath, isNull);
-    expect(l.explain(outcome), contains('brew install ollama'));
+    expect(l.explainLaunch(outcome), contains('brew install ollama'));
   });
 
   test('a dangling symlink does not count as installed', () async {
@@ -112,14 +112,14 @@ void main() {
     final outcome = await l.ensureRunning();
 
     expect(outcome, LaunchOutcome.launchFailed);
-    expect(l.explain(outcome), contains('Permission denied'));
+    expect(l.explainLaunch(outcome), contains('Permission denied'));
   });
 
   test('timeout tells the user how to see the real error', () async {
     // A detached process gives us no stderr, so the message has to hand the
     // problem back to the terminal rather than pretend to diagnose it.
     final l = launcher(up: () => false);
-    expect(l.explain(await l.ensureRunning()), contains('ollama serve'));
+    expect(l.explainLaunch(await l.ensureRunning()), contains('ollama serve'));
   });
 
   test('started but never answering times out', () async {
@@ -133,13 +133,13 @@ void main() {
     expect(outcome.isUp, isFalse);
     // It waited rather than giving up on the first failed poll.
     expect(sw.elapsedMilliseconds, greaterThanOrEqualTo(500));
-    expect(l.explain(outcome), contains('port 11434'));
+    expect(l.explainLaunch(outcome), contains('port 11434'));
   });
 
   test('explain() is silent only when we are actually up', () {
     final l = launcher(up: () => true);
     for (final outcome in LaunchOutcome.values) {
-      expect(l.explain(outcome).isEmpty, outcome.isUp, reason: '$outcome');
+      expect(l.explainLaunch(outcome).isEmpty, outcome.isUp, reason: '$outcome');
     }
   });
 

@@ -24,7 +24,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_rag/document_indexing/ingest.dart';
 import 'package:local_rag/ollama/ollama_client.dart';
-import 'package:local_rag/question_answering/rag_controller.dart';
+import 'package:local_rag/question_answering/model_preferences.dart';
+import 'package:local_rag/question_answering/retrieval_settings.dart';
 import 'package:local_rag/vector_search/stored_chunk.dart';
 import '../bench_index.dart';
 import '../eval_set.dart';
@@ -56,7 +57,7 @@ Future<List<Probe>> probeAll(
     final qv = await ollama.embedOne(model: model, input: q);
     out.add(Probe(
       q,
-      store.search(qv, k: 5, maxPerSource: RagController.maxChunksPerSource)
+      store.search(qv, k: 5, maxPerSource: RetrievalSettings.maxChunksPerSource)
           as List<ScoredChunk>,
     ));
   }
@@ -90,13 +91,13 @@ Future<void> _report(
   OllamaClient ollama,
   List<File> files,
   String model,
-  int targetChars,
+  int chunkSize,
 ) async {
   final index = await buildIndex(
     ollama: ollama,
     files: files,
     embeddingModel: model,
-    targetChars: targetChars,
+    chunkSize: chunkSize,
   );
   final store = index.store;
 
@@ -111,7 +112,7 @@ Future<void> _report(
   final byTop = bestSplit(on, off, (p) => p.top);
   final byMargin = bestSplit(on, off, (p) => p.margin);
 
-  stdout.writeln('\n══ chunk size $targetChars chars '
+  stdout.writeln('\n══ chunk size $chunkSize chars '
       '(${store.size} chunks) ══════════════');
   stdout.writeln('              worst on-topic   best off-topic   overlap?');
   stdout.writeln('  top score   ${f3(onTop.first).padLeft(12)}   '
@@ -125,7 +126,7 @@ Future<void> _report(
   stdout.writeln('  best split by margin:    '
       '${byMargin.correct}/${byMargin.total} correct at ${f3(byMargin.at)}');
 
-  final gate = RagController.thresholdFor(model);
+  final gate = RetrievalSettings.thresholdFor(model);
   final passing = on.where((p) => p.top >= gate).length;
   stdout.writeln('  with the shipping gate ($gate): '
       '$passing/${on.length} real questions retrieve');
@@ -137,7 +138,7 @@ Future<void> _report(
   for (final e in evalSet.entries) {
     final qv = await ollama.embedOne(model: model, input: e.key);
     final hits = store.search(qv, k: 5,
-        maxPerSource: RagController.maxChunksPerSource);
+        maxPerSource: RetrievalSettings.maxChunksPerSource);
     final ranked = hits.map((h) => h.chunk.source).toList();
     if (ranked.take(1).contains(e.value)) at1++;
     if (ranked.contains(e.value)) at5++;
@@ -169,11 +170,11 @@ Future<void> _run() async {
     return;
   }
 
-  final want = RagController.preferredEmbedModels.first;
+  final want = ModelPreferences.embedding.first;
   final installed = (await ollama.listModels()).map((m) => m.name).toSet();
   final model = installed.contains(want) ? want : '$want:latest';
 
-  final files = await collectFiles(Directory('sample_kb'));
+  final files = await findSupportedFiles(Directory('sample_kb'));
 
   stdout.writeln('model: $model');
   stdout.writeln('✗ = a real question the gate blocks   '

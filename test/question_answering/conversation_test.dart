@@ -60,7 +60,7 @@ Future<RagController> buildController(OllamaClient ollama) async {
   return RagController(client: ollama)
     ..chatModel = chatModel
     ..embedModel = embedModel
-    ..store = store
+    ..index = store
     ..tables = [
       CsvTable.parse(
         File('sample_kb/sales_q1_2026.csv').readAsStringSync(),

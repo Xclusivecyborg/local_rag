@@ -1,26 +1,16 @@
 import 'package:flutter/material.dart';
 
-/// A small Markdown renderer sized for LLM chat output.
+/// A small Markdown renderer for chat replies.
 ///
-/// Deliberately not a CommonMark implementation. It covers what models
-/// actually emit in conversation — bold, italic, inline code, strikethrough,
-/// headings, bullet and numbered lists, block quotes and fenced code — and
-/// nothing else.
+/// Covers what models actually write: bold, italic, inline code,
+/// strikethrough, headings, lists, quotes and fenced code. Two deliberate
+/// differences from standard Markdown:
 ///
-/// Two decisions worth knowing about:
+///  * `_underscores_` are not italic, so names like `revenue_ngn` survive.
+///  * An unclosed `**` styles the rest of the line, so while a reply streams
+///    in, bold words appear bold instead of flashing asterisks.
 ///
-///  * **Underscores are not emphasis.** `_foo_` renders literally. Real
-///    content is full of identifiers like `revenue_ngn` and `all-MiniLM-L6-v2`,
-///    and treating `_` as italic mangles them. Models emit `*` for emphasis
-///    almost exclusively, so nothing is lost.
-///
-///  * **Unterminated markers are styled, not shown.** Mid-stream the text is
-///    briefly `Hello **Jam`. Rendering that literally makes asterisks flash on
-///    screen and vanish a frame later. An unclosed `**` instead styles the
-///    remainder, so the word simply arrives already bold.
-///
-/// Uses [Text.rich] rather than [SelectableText.rich] so that a single
-/// [SelectionArea] higher up can select across blocks and across messages.
+/// Uses [Text.rich] so one [SelectionArea] can select across messages.
 class MarkdownText extends StatelessWidget {
   const MarkdownText(this.data, {super.key, this.style});
 
@@ -31,7 +21,6 @@ class MarkdownText extends StatelessWidget {
   Widget build(BuildContext context) {
     final base = style ?? DefaultTextStyle.of(context).style;
     final blocks = parseBlocks(data);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -45,25 +34,38 @@ class MarkdownText extends StatelessWidget {
     );
   }
 
-  double _gapBefore(MdBlock b) => switch (b.kind) {
-        BlockKind.heading => 14,
-        BlockKind.code => 10,
-        BlockKind.bullet || BlockKind.numbered => 4,
-        _ => 8,
-      };
+  double _gapBefore(MarkdownBlock block) => switch (block.kind) {
+    BlockKind.heading => 14,
+    BlockKind.code => 10,
+    BlockKind.bullet || BlockKind.numbered => 4,
+    _ => 8,
+  };
 
-  Widget _buildBlock(BuildContext context, MdBlock b, TextStyle base) {
+  Widget _buildBlock(
+    BuildContext context,
+    MarkdownBlock block,
+    TextStyle base,
+  ) {
     final theme = Theme.of(context);
+    Widget inline(TextStyle style) => Text.rich(
+      TextSpan(children: parseInline(block.text, base)),
+      style: style,
+    );
 
-    switch (b.kind) {
+    switch (block.kind) {
       case BlockKind.heading:
-        final scale = switch (b.level) { 1 => 1.35, 2 => 1.2, _ => 1.08 };
-        return Text.rich(TextSpan(children: parseInline(b.text, base)),
-            style: base.copyWith(
-              fontSize: base.fontSize! * scale,
-              fontWeight: FontWeight.w700,
-              height: 1.3,
-            ));
+        final scale = switch (block.level) {
+          1 => 1.35,
+          2 => 1.2,
+          _ => 1.08,
+        };
+        return inline(
+          base.copyWith(
+            fontSize: base.fontSize! * scale,
+            fontWeight: FontWeight.w700,
+            height: 1.3,
+          ),
+        );
 
       case BlockKind.code:
         return Container(
@@ -76,7 +78,7 @@ class MarkdownText extends StatelessWidget {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Text(
-              b.text,
+              block.text,
               style: base.copyWith(
                 fontFamily: 'Menlo',
                 fontSize: (base.fontSize ?? 14) - 1.5,
@@ -94,57 +96,43 @@ class MarkdownText extends StatelessWidget {
               left: BorderSide(color: theme.dividerColor, width: 3),
             ),
           ),
-          child: Text.rich(
-            TextSpan(children: parseInline(b.text, base)),
-            style: base.copyWith(color: theme.hintColor),
-          ),
+          child: inline(base.copyWith(color: theme.hintColor)),
         );
 
       case BlockKind.bullet:
       case BlockKind.numbered:
+        final isBullet = block.kind == BlockKind.bullet;
         return Padding(
-          padding: EdgeInsets.only(left: 4.0 + b.level * 16),
+          padding: EdgeInsets.only(left: 4.0 + block.level * 16),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: b.kind == BlockKind.bullet ? 18 : 26,
+                width: isBullet ? 18 : 26,
                 child: Text(
-                  b.kind == BlockKind.bullet ? '•' : b.marker!,
+                  isBullet ? '•' : block.marker!,
                   style: base.copyWith(color: theme.hintColor),
                 ),
               ),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(children: parseInline(b.text, base)),
-                  style: base,
-                ),
-              ),
+              Expanded(child: inline(base)),
             ],
           ),
         );
 
       case BlockKind.paragraph:
-        return Text.rich(
-          TextSpan(children: parseInline(b.text, base)),
-          style: base,
-        );
+        return inline(base);
     }
   }
 }
 
-// ---------------------------------------------------------------------------
-// Block parsing
-// ---------------------------------------------------------------------------
-
 enum BlockKind { paragraph, heading, bullet, numbered, code, quote }
 
-class MdBlock {
-  const MdBlock(this.kind, this.text, {this.level = 0, this.marker});
+class MarkdownBlock {
+  const MarkdownBlock(this.kind, this.text, {this.level = 0, this.marker});
   final BlockKind kind;
   final String text;
-  final int level;
-  final String? marker; // "1." etc, for numbered items
+  final int level; // heading level, or list nesting depth
+  final String? marker; // "1." etc., for numbered items
 }
 
 final _heading = RegExp(r'^(#{1,6})\s+(.*)$');
@@ -153,120 +141,103 @@ final _numbered = RegExp(r'^(\s*)(\d+[.)])\s+(.*)$');
 final _quote = RegExp(r'^>\s?(.*)$');
 final _fence = RegExp(r'^\s*```');
 
-List<MdBlock> parseBlocks(String source) {
+List<MarkdownBlock> parseBlocks(String source) {
   final lines = source.replaceAll('\r\n', '\n').split('\n');
-  final blocks = <MdBlock>[];
-  final para = <String>[];
+  final blocks = <MarkdownBlock>[];
+  final paragraph = <String>[];
 
-  void flushParagraph() {
-    if (para.isEmpty) return;
-    blocks.add(MdBlock(BlockKind.paragraph, para.join('\n').trim()));
-    para.clear();
+  void finishParagraph() {
+    if (paragraph.isEmpty) return;
+    blocks.add(MarkdownBlock(BlockKind.paragraph, paragraph.join('\n').trim()));
+    paragraph.clear();
   }
 
   for (var i = 0; i < lines.length; i++) {
     final line = lines[i];
 
     if (_fence.hasMatch(line)) {
-      flushParagraph();
-      final body = <String>[];
-      i++;
-      while (i < lines.length && !_fence.hasMatch(lines[i])) {
-        body.add(lines[i]);
-        i++;
+      finishParagraph();
+      final code = <String>[];
+      for (i++; i < lines.length && !_fence.hasMatch(lines[i]); i++) {
+        code.add(lines[i]);
       }
-      // An unclosed fence mid-stream still renders as a code block.
-      blocks.add(MdBlock(BlockKind.code, body.join('\n')));
+      // An unclosed fence (still streaming) renders as code too.
+      blocks.add(MarkdownBlock(BlockKind.code, code.join('\n')));
       continue;
     }
 
     if (line.trim().isEmpty) {
-      flushParagraph();
+      finishParagraph();
       continue;
     }
 
-    final h = _heading.firstMatch(line);
-    if (h != null) {
-      flushParagraph();
-      blocks.add(MdBlock(BlockKind.heading, h.group(2)!.trim(),
-          level: h.group(1)!.length));
-      continue;
-    }
-
-    final q = _quote.firstMatch(line);
-    if (q != null) {
-      flushParagraph();
-      blocks.add(MdBlock(BlockKind.quote, q.group(1)!.trim()));
-      continue;
-    }
-
-    final nu = _numbered.firstMatch(line);
-    if (nu != null) {
-      flushParagraph();
-      blocks.add(MdBlock(
+    final MarkdownBlock? block;
+    if (_heading.firstMatch(line) case final m?) {
+      block = MarkdownBlock(
+        BlockKind.heading,
+        m.group(2)!.trim(),
+        level: m.group(1)!.length,
+      );
+    } else if (_quote.firstMatch(line) case final m?) {
+      block = MarkdownBlock(BlockKind.quote, m.group(1)!.trim());
+    } else if (_numbered.firstMatch(line) case final m?) {
+      block = MarkdownBlock(
         BlockKind.numbered,
-        nu.group(3)!.trim(),
-        level: nu.group(1)!.length ~/ 2,
-        marker: nu.group(2),
-      ));
-      continue;
+        m.group(3)!.trim(),
+        level: m.group(1)!.length ~/ 2,
+        marker: m.group(2),
+      );
+    } else if (_bullet.firstMatch(line) case final m?) {
+      block = MarkdownBlock(
+        BlockKind.bullet,
+        m.group(2)!.trim(),
+        level: m.group(1)!.length ~/ 2,
+      );
+    } else {
+      block = null;
     }
 
-    final b = _bullet.firstMatch(line);
-    if (b != null) {
-      flushParagraph();
-      blocks.add(MdBlock(BlockKind.bullet, b.group(2)!.trim(),
-          level: b.group(1)!.length ~/ 2));
-      continue;
+    if (block == null) {
+      paragraph.add(line);
+    } else {
+      finishParagraph();
+      blocks.add(block);
     }
-
-    para.add(line);
   }
-  flushParagraph();
+  finishParagraph();
 
-  if (blocks.isEmpty) blocks.add(const MdBlock(BlockKind.paragraph, ''));
+  if (blocks.isEmpty) blocks.add(const MarkdownBlock(BlockKind.paragraph, ''));
   return blocks;
 }
 
-// ---------------------------------------------------------------------------
-// Inline parsing
-// ---------------------------------------------------------------------------
-
-/// Converts a single line of Markdown into styled spans.
-///
-/// Emphasis nests by recursion: the contents of `**...**` are re-parsed with a
-/// bolded base style, so `**bold with *italic* inside**` works.
+/// Styles one line of Markdown. Emphasis nests because the text inside a
+/// marker is parsed again with the added style.
 List<InlineSpan> parseInline(String text, TextStyle base) {
   final spans = <InlineSpan>[];
-  final buf = StringBuffer();
+  final plain = StringBuffer();
   var i = 0;
 
-  void flush() {
-    if (buf.isEmpty) return;
-    spans.add(TextSpan(text: buf.toString(), style: base));
-    buf.clear();
-  }
-
-  void nested(String inner, TextStyle style) {
-    spans.addAll(parseInline(inner, style));
+  void finishPlain() {
+    if (plain.isEmpty) return;
+    spans.add(TextSpan(text: plain.toString(), style: base));
+    plain.clear();
   }
 
   while (i < text.length) {
-    // Inline code — no nesting inside.
+    // Inline code: nothing inside it is parsed.
     if (text[i] == '`') {
       final end = text.indexOf('`', i + 1);
-      flush();
-      final body = end == -1
-          ? text.substring(i + 1)
-          : text.substring(i + 1, end);
-      spans.add(TextSpan(
-        text: body,
-        style: base.copyWith(
-          fontFamily: 'Menlo',
-          fontSize: (base.fontSize ?? 14) - 1,
-          backgroundColor: Colors.white10,
+      finishPlain();
+      spans.add(
+        TextSpan(
+          text: text.substring(i + 1, end == -1 ? null : end),
+          style: base.copyWith(
+            fontFamily: 'Menlo',
+            fontSize: (base.fontSize ?? 14) - 1,
+            backgroundColor: Colors.white10,
+          ),
         ),
-      ));
+      );
       i = end == -1 ? text.length : end + 1;
       continue;
     }
@@ -274,9 +245,13 @@ List<InlineSpan> parseInline(String text, TextStyle base) {
     if (text.startsWith('~~', i)) {
       final end = text.indexOf('~~', i + 2);
       if (end != -1) {
-        flush();
-        nested(text.substring(i + 2, end),
-            base.copyWith(decoration: TextDecoration.lineThrough));
+        finishPlain();
+        spans.addAll(
+          parseInline(
+            text.substring(i + 2, end),
+            base.copyWith(decoration: TextDecoration.lineThrough),
+          ),
+        );
         i = end + 2;
         continue;
       }
@@ -284,35 +259,38 @@ List<InlineSpan> parseInline(String text, TextStyle base) {
 
     if (text.startsWith('**', i)) {
       final end = text.indexOf('**', i + 2);
-      flush();
-      final bold = base.copyWith(fontWeight: FontWeight.w700);
-      if (end == -1) {
-        // Streaming: closing marker has not arrived yet.
-        nested(text.substring(i + 2), bold);
-        i = text.length;
-      } else {
-        nested(text.substring(i + 2, end), bold);
-        i = end + 2;
-      }
+      finishPlain();
+      // If the closing ** has not streamed in yet, bold the rest.
+      spans.addAll(
+        parseInline(
+          text.substring(i + 2, end == -1 ? null : end),
+          base.copyWith(fontWeight: FontWeight.w700),
+        ),
+      );
+      i = end == -1 ? text.length : end + 2;
       continue;
     }
 
     if (text[i] == '*') {
       final end = text.indexOf('*', i + 1);
-      // Require non-empty content; a lone `*` is literal (bullets, maths).
-      if (end != -1 && end > i + 1) {
-        flush();
-        nested(text.substring(i + 1, end),
-            base.copyWith(fontStyle: FontStyle.italic));
+      // A lone `*` (a bullet, a multiplication) stays literal.
+      if (end > i + 1) {
+        finishPlain();
+        spans.addAll(
+          parseInline(
+            text.substring(i + 1, end),
+            base.copyWith(fontStyle: FontStyle.italic),
+          ),
+        );
         i = end + 1;
         continue;
       }
     }
 
-    buf.write(text[i]);
+    plain.write(text[i]);
     i++;
   }
 
-  flush();
+  finishPlain();
   return spans;
 }

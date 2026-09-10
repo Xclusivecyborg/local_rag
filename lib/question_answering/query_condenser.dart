@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:local_rag/ollama/ollama_client.dart';
 
-/// The outcome of trying to shorten a question before embedding it.
+/// The result of trying to shorten a question before embedding it.
 class CondensedQuery {
   const CondensedQuery({
     required this.text,
@@ -11,51 +11,38 @@ class CondensedQuery {
     this.note,
   });
 
-  /// What to actually embed.
-  final String text;
+  const CondensedQuery.unchanged(String question, [String? why])
+    : text = question,
+      original = question,
+      wasCondensed = false,
+      note = why;
+
+  final String text; // what to embed
   final String original;
   final bool wasCondensed;
-
-  /// Why it was skipped or rejected — surfaced for diagnostics, never guessed at.
-  final String? note;
-
-  const CondensedQuery.unchanged(String question, [String? why])
-      : text = question,
-        original = question,
-        wasCondensed = false,
-        note = why;
+  final String? note; // why the rewrite was skipped or rejected
 }
 
 /// Rewrites a question into a short search query before it is embedded.
 ///
-/// Embeddings score the *whole sentence*. Ask "How much discount do I get if I
-/// buy shoes worth 100,000 naira as an employee?" and the clause about buying
-/// drags the vector toward documents about purchases and refunds; the staff
-/// handbook that actually answers it falls to rank 10, and with k=5 it is never
-/// seen. Measured on sample_kb:
+/// An embedding represents the whole sentence, so extra clauses pull it
+/// off-topic. On sample_kb, "employee discount" finds the staff handbook at
+/// rank 1, but a long question about buying shoes as an employee ranks it
+/// 10th. Condensing also turns follow-ups like "and the Abuja one?" into a
+/// real query using the conversation so far.
 ///
-///     "employee discount"                              rank 1
-///     "What discount do employees get on Heritage?"     rank 2
-///     the full question above                           rank 10
-///
-/// Condensing also fixes follow-ups. "and the Abuja one?" embeds four words
-/// with no noun in them; resolved against history it becomes a real query.
-///
-/// Everything here is designed to fail back to the original question. A bad
-/// rewrite is worse than no rewrite, so a rewrite is only used when it clearly
-/// looks like a search query.
+/// Every failure falls back to the original question: a bad rewrite is worse
+/// than none.
 class QueryCondenser {
   QueryCondenser(this._ollama, {this.timeout = const Duration(seconds: 25)});
 
   final OllamaClient _ollama;
   final Duration timeout;
 
-  /// Questions at or below this many words are already close to a search query.
-  /// Rewriting them risks stripping the one word that mattered, for no gain —
-  /// "employee discount" cannot be usefully improved.
+  /// Shorter questions are already close to a search query.
   static const int minWordsToCondense = 8;
 
-  /// A rewrite longer than this is the model explaining itself, not answering.
+  /// A longer rewrite is the model explaining itself, not a query.
   static const int maxWords = 12;
 
   static const String _system = '''
@@ -76,11 +63,11 @@ Abuja branch location
 Q: Can you tell me please what the returns window is for the Heritage line?
 Heritage line returns window''';
 
-  /// Returns a query to embed. Never throws.
+  /// Returns the query to embed. Never throws.
   Future<CondensedQuery> condense({
     required String model,
     required String question,
-    List<String> history = const <String>[],
+    List<String> history = const [],
     bool thinkingModel = false,
   }) async {
     final trimmed = question.trim();
@@ -91,53 +78,50 @@ Heritage line returns window''';
       return CondensedQuery.unchanged(trimmed, 'short question, left alone');
     }
 
-    final messages = <ChatMessage>[
+    final messages = [
       const ChatMessage('system', _system),
-      if (history.isNotEmpty)
-        ChatMessage('user',
-            'Conversation so far:\n${history.join('\n')}\n\nQ: $trimmed')
-      else ChatMessage('user', 'Q: $trimmed'),
+      ChatMessage(
+        'user',
+        history.isEmpty
+            ? 'Q: $trimmed'
+            : 'Conversation so far:\n${history.join('\n')}\n\nQ: $trimmed',
+      ),
     ];
 
     try {
-      final buffer = StringBuffer();
-      await for (final chunk in _ollama
-          .chat(
-            model: model,
-            messages: messages,
-            temperature: 0,
-            // A rewrite does not need a visible scratchpad, and waiting for one
-            // would put several seconds in front of every question.
-            think: thinkingModel ? false : null,
-          )
-          .timeout(timeout)) {
-        if (chunk.content != null) buffer.write(chunk.content);
+      final reply = StringBuffer();
+      final stream = _ollama.chat(
+        model: model,
+        messages: messages,
+        temperature: 0,
+        // A one-line rewrite does not need seconds of visible thinking.
+        think: thinkingModel ? false : null,
+      );
+      await for (final chunk in stream.timeout(timeout)) {
+        if (chunk.content != null) reply.write(chunk.content);
       }
-      return _validate(buffer.toString(), trimmed);
+      return _validate(reply.toString(), trimmed);
     } on Object catch (e) {
-      // Condensing is an optimisation. If it fails for any reason — model gone,
-      // timeout, malformed stream — the turn continues on the raw question.
       return CondensedQuery.unchanged(trimmed, 'condense failed: $e');
     }
   }
 
-  /// Accepts a rewrite only if it looks like a query rather than a sentence
-  /// about one.
+  /// Accepts the rewrite only if it looks like a search query.
   static CondensedQuery _validate(String raw, String original) {
-    var text = raw.trim();
-    if (text.isEmpty) {
+    if (raw.trim().isEmpty) {
       return CondensedQuery.unchanged(original, 'empty rewrite');
     }
 
-    // Models like to add a line of commentary. Take the first real line.
-    text = text
+    // Take the first non-empty line, without quotes or a "Query:" label.
+    var text = raw
         .split('\n')
         .map((l) => l.trim())
         .firstWhere((l) => l.isNotEmpty, orElse: () => '');
     text = text.replaceAll(RegExp(r'^["“”\x27`]+|["“”\x27`]+$'), '').trim();
-    // Strip a leading "Query:" / "Search:" label if one slipped through.
     text = text.replaceFirst(
-        RegExp(r'^(query|search|answer)\s*:\s*', caseSensitive: false), '');
+      RegExp(r'^(query|search|answer)\s*:\s*', caseSensitive: false),
+      '',
+    );
 
     if (text.isEmpty) {
       return CondensedQuery.unchanged(original, 'empty after cleanup');
@@ -145,29 +129,42 @@ Heritage line returns window''';
     if (text.split(RegExp(r'\s+')).length > maxWords) {
       return CondensedQuery.unchanged(original, 'rewrite too long');
     }
-    if (RegExp(r"\b(sorry|cannot|can't|unable|as an ai)\b",
-            caseSensitive: false)
-        .hasMatch(text)) {
+    if (RegExp(
+      r"\b(sorry|cannot|can't|unable|as an ai)\b",
+      caseSensitive: false,
+    ).hasMatch(text)) {
       return CondensedQuery.unchanged(original, 'model refused');
     }
-    // Must carry at least one word of substance, not just stopwords.
-    final content = text
+    final meaningfulWords = text
         .toLowerCase()
         .split(RegExp(r'[^a-z0-9]+'))
         .where((w) => w.length > 2 && !_stopwords.contains(w));
-    if (content.isEmpty) {
+    if (meaningfulWords.isEmpty) {
       return CondensedQuery.unchanged(original, 'rewrite carried no content');
     }
 
-    return CondensedQuery(
-      text: text,
-      original: original,
-      wasCondensed: true,
-    );
+    return CondensedQuery(text: text, original: original, wasCondensed: true);
   }
 
   static const Set<String> _stopwords = {
-    'the', 'and', 'for', 'with', 'what', 'how', 'why', 'who', 'was', 'are',
-    'you', 'your', 'this', 'that', 'from', 'about', 'get', 'can', 'does', 
+    'the',
+    'and',
+    'for',
+    'with',
+    'what',
+    'how',
+    'why',
+    'who',
+    'was',
+    'are',
+    'you',
+    'your',
+    'this',
+    'that',
+    'from',
+    'about',
+    'get',
+    'can',
+    'does',
   };
 }

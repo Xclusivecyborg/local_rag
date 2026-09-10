@@ -1,42 +1,29 @@
 import 'dart:convert';
 
-/// A CSV kept as a *table* rather than flattened into prose.
+/// A CSV file kept as a table, so totals and averages can be computed exactly.
 ///
-/// The rest of the pipeline turns every file into text and embeds it, which is
-/// right for prose and wrong for numbers. Retrieval returns the top _k_ most
-/// similar chunks; an aggregation needs *every* matching row. No value of _k_
-/// bridges that, and no prompt makes a model add up rows it was never shown.
-///
-/// So structured files get parsed twice: once into prose for semantic lookup,
-/// and once into this, for arithmetic that is actually correct.
+/// Retrieval only returns the few most similar chunks, but a total needs every
+/// matching row. So CSV files are also indexed as prose (for lookups) and kept
+/// here as tables (for arithmetic).
 class CsvTable {
   CsvTable({required this.source, required this.columns, required this.rows});
 
   final String source;
   final List<CsvColumn> columns;
-
-  /// Raw cell text, one list per row. Typed access goes through [columns].
-  final List<List<String>> rows;
+  final List<List<String>> rows; // raw cell text
 
   int get rowCount => rows.length;
 
-  CsvColumn? column(String name) {
-    for (final c in columns) {
-      if (c.name.toLowerCase() == name.toLowerCase()) return c;
-    }
-    return null;
-  }
+  CsvColumn? column(String name) => columns
+      .where((c) => c.name.toLowerCase() == name.toLowerCase())
+      .firstOrNull;
 
   List<CsvColumn> get numericColumns =>
       columns.where((c) => c.kind == ColumnKind.number).toList();
   List<CsvColumn> get textColumns =>
       columns.where((c) => c.kind == ColumnKind.text).toList();
-  CsvColumn? get dateColumn {
-    for (final c in columns) {
-      if (c.kind == ColumnKind.date) return c;
-    }
-    return null;
-  }
+  CsvColumn? get dateColumn =>
+      columns.where((c) => c.kind == ColumnKind.date).firstOrNull;
 
   String cell(int row, CsvColumn col) =>
       col.index < rows[row].length ? rows[row][col.index].trim() : '';
@@ -45,17 +32,16 @@ class CsvTable {
 
   DateTime? date(int row, CsvColumn col) => DateTime.tryParse(cell(row, col));
 
-  /// Distinct non-empty values of a text column, preserving original casing.
-  Set<String> distinctValues(CsvColumn col) => <String>{
+  /// Distinct non-empty values of a column, in their original casing.
+  Set<String> distinctValues(CsvColumn col) => {
     for (var r = 0; r < rows.length; r++)
       if (cell(r, col).isNotEmpty) cell(r, col),
   };
 
-  /// Parses [raw] and infers a kind per column.
+  /// Parses [raw] and works out each column's kind.
   ///
-  /// A column is a number only if *every* non-empty cell parses as one — a
-  /// single stray value means the column is text, which is safer than
-  /// silently averaging over the rows that happened to parse.
+  /// A column is numeric only if every non-empty cell is a number. One stray
+  /// value makes it text, which is safer than averaging the cells that parsed.
   factory CsvTable.parse(String raw, {required String source}) {
     final grid = parseCsvGrid(raw);
     if (grid.isEmpty) {
@@ -63,31 +49,29 @@ class CsvTable {
     }
 
     final header = grid.first;
-    final body = <List<String>>[
-      for (var r = 1; r < grid.length; r++)
-        if (!grid[r].every((c) => c.trim().isEmpty)) grid[r],
+    final body = [
+      for (final row in grid.skip(1))
+        if (!row.every((c) => c.trim().isEmpty)) row,
     ];
 
     final columns = <CsvColumn>[];
     for (var c = 0; c < header.length; c++) {
       var sawValue = false;
-      var allNumeric = true;
+      var allNumbers = true;
       var allDates = true;
       for (final row in body) {
         final value = c < row.length ? row[c].trim() : '';
         if (value.isEmpty) continue;
         sawValue = true;
-        if (num.tryParse(value) == null) allNumeric = false;
+        if (num.tryParse(value) == null) allNumbers = false;
         if (DateTime.tryParse(value) == null) allDates = false;
-        if (!allNumeric && !allDates) break;
+        if (!allNumbers && !allDates) break;
       }
-      // Dates first: "2026-01-05" is not a number, but check order matters if
-      // a format ever parses as both.
       final kind = !sawValue
           ? ColumnKind.text
           : allDates
           ? ColumnKind.date
-          : allNumeric
+          : allNumbers
           ? ColumnKind.number
           : ColumnKind.text;
       columns.add(CsvColumn(header[c].trim(), c, kind));
@@ -96,52 +80,38 @@ class CsvTable {
     return CsvTable(source: source, columns: columns, rows: body);
   }
 
-  /// Runs [query] over **every** row. This is the whole point.
+  /// Runs [query] over every row. Null if the query names an unknown column.
   QueryResult? aggregate(TableQuery query) {
+    final isCount = query.aggregate == Aggregate.count;
     final metric = query.metric == null ? null : column(query.metric!);
-    if (query.aggregate != Aggregate.count && metric == null) return null;
+    if (!isCount && metric == null) return null;
+    final groupColumn = query.groupBy == null ? null : column(query.groupBy!);
 
-    final matched = <int>[];
-    for (var r = 0; r < rows.length; r++) {
-      if (!_matches(r, query)) continue;
-      matched.add(r);
-    }
-
-    num value;
+    final matched = [
+      for (var r = 0; r < rows.length; r++)
+        if (_matches(r, query)) r,
+    ];
+    final values = <num>[];
     final groups = <String, num>{};
-    final groupCol = query.groupBy == null ? null : column(query.groupBy!);
-
-    if (query.aggregate == Aggregate.count) {
-      value = matched.length;
-      if (groupCol != null) {
-        for (final r in matched) {
-          final key = cell(r, groupCol);
-          groups[key] = (groups[key] ?? 0) + 1;
-        }
-      }
-    } else {
-      final values = <num>[];
-      for (final r in matched) {
-        final n = number(r, metric!);
-        if (n == null) continue;
-        values.add(n);
-        if (groupCol != null) {
-          final key = cell(r, groupCol);
-          groups[key] = (groups[key] ?? 0) + n;
-        }
-      }
-      if (values.isEmpty) {
-        value = 0;
-      } else {
-        value = switch (query.aggregate) {
-          Aggregate.sum => values.reduce((a, b) => a + b),
-          Aggregate.average => values.reduce((a, b) => a + b) / values.length,
-          Aggregate.min => values.reduce((a, b) => a < b ? a : b),
-          Aggregate.max => values.reduce((a, b) => a > b ? a : b),
-          Aggregate.count => values.length,
-        };
+    for (final r in matched) {
+      final n = isCount ? 1 : number(r, metric!);
+      if (n == null) continue;
+      values.add(n);
+      if (groupColumn != null) {
+        final key = cell(r, groupColumn);
+        groups[key] = (groups[key] ?? 0) + n;
       }
     }
+
+    final num value = values.isEmpty
+        ? 0
+        : switch (query.aggregate) {
+            Aggregate.sum => values.reduce((a, b) => a + b),
+            Aggregate.average => values.reduce((a, b) => a + b) / values.length,
+            Aggregate.min => values.reduce((a, b) => a < b ? a : b),
+            Aggregate.max => values.reduce((a, b) => a > b ? a : b),
+            Aggregate.count => values.length,
+          };
 
     return QueryResult(
       query: query,
@@ -149,7 +119,7 @@ class CsvTable {
       value: value,
       matchedRows: matched.length,
       totalRows: rows.length,
-      groups: groupCol == null ? null : groups,
+      groups: groupColumn == null ? null : groups,
     );
   }
 
@@ -164,11 +134,10 @@ class CsvTable {
     final range = query.range;
     if (range != null) {
       final col = dateColumn;
-      if (col == null) return false;
-      final d = date(row, col);
-      if (d == null) return false;
-      if (d.isBefore(range.start)) return false;
-      if (!d.isBefore(range.end)) return false;
+      final d = col == null ? null : date(row, col);
+      if (d == null || d.isBefore(range.start) || !d.isBefore(range.end)) {
+        return false;
+      }
     }
     return true;
   }
@@ -192,10 +161,7 @@ class CsvTable {
           ColumnKind.values.byName(c['kind'] as String),
         ),
     ],
-    rows: [
-      for (final r in (json['rows'] as List))
-        (r as List).map((e) => e as String).toList(),
-    ],
+    rows: [for (final r in (json['rows'] as List)) (r as List).cast<String>()],
   );
 
   static String encodeAll(List<CsvTable> tables) => jsonEncode({
@@ -203,6 +169,7 @@ class CsvTable {
     'tables': [for (final t in tables) t.toJson()],
   });
 
+  /// Empty if [raw] is corrupt or from an older format; the user re-indexes.
   static List<CsvTable> decodeAll(String raw) {
     try {
       final json = jsonDecode(raw) as Map<String, dynamic>;
@@ -211,7 +178,7 @@ class CsvTable {
           CsvTable.fromJson(t),
       ];
     } on Object {
-      return const []; // corrupt or older schema; caller re-indexes
+      return const [];
     }
   }
 }
@@ -224,12 +191,12 @@ class CsvColumn {
   final int index;
   final ColumnKind kind;
 
-  /// `revenue_ngn` -> {revenue, ngn}. Used to match a column against the words
-  /// in a question without hardcoding this particular schema.
-  Set<String> get tokens => name
+  /// The words in the column name: `revenue_ngn` gives {revenue, ngn}. Used to
+  /// match columns against the words in a question.
+  Set<String> get nameWords => name
       .toLowerCase()
       .split(RegExp(r'[^a-z0-9]+'))
-      .where((t) => t.isNotEmpty)
+      .where((w) => w.isNotEmpty)
       .toSet();
 
   @override
@@ -246,12 +213,8 @@ class ColumnFilter {
 
 class DateRange {
   const DateRange(this.start, this.end, this.label);
-
-  /// Inclusive.
-  final DateTime start;
-
-  /// Exclusive.
-  final DateTime end;
+  final DateTime start; // inclusive
+  final DateTime end; // exclusive
   final String label;
 }
 
@@ -265,13 +228,12 @@ class TableQuery {
   });
 
   final Aggregate aggregate;
-  final String? metric;
+  final String? metric; // the column being summed, averaged, etc.
   final List<ColumnFilter> filters;
   final DateRange? range;
   final String? groupBy;
 
-  /// Human-readable restatement, so the UI and the prompt can both show what
-  /// was actually computed rather than asking the user to trust a number.
+  /// The query in plain words, so the answer can say what was computed.
   String describe() {
     final verb = switch (aggregate) {
       Aggregate.sum => 'Total',
@@ -308,7 +270,7 @@ class QueryResult {
 
   bool get isEmpty => matchedRows == 0;
 
-  /// Grouped in thousands, which is how currency and unit counts are read.
+  /// Formats with thousands separators, e.g. 71882000 as 71,882,000.
   static String formatNumber(num n) {
     final rounded = n is int || n == n.roundToDouble()
         ? n.round().toString()
@@ -324,12 +286,10 @@ class QueryResult {
     return buffer.toString();
   }
 
-  String get formattedValue => formatNumber(value);
-
-  /// What gets handed to the model: the figure, and exactly what it covers.
+  /// The figure and what it covers, as given to the chat model.
   String toPromptBlock() {
     final buffer = StringBuffer()
-      ..writeln('${query.describe()}: $formattedValue')
+      ..writeln('${query.describe()}: ${formatNumber(value)}')
       ..writeln(
         'Computed over $matchedRows matching row(s) '
         'out of $totalRows in $source.',
@@ -337,9 +297,8 @@ class QueryResult {
     final g = groups;
     if (g != null && g.isNotEmpty) {
       buffer.writeln('Breakdown:');
-      final keys = g.keys.toList()..sort();
-      for (final k in keys) {
-        buffer.writeln('  $k: ${formatNumber(g[k]!)}');
+      for (final key in g.keys.toList()..sort()) {
+        buffer.writeln('  $key: ${formatNumber(g[key]!)}');
       }
     }
     return buffer.toString();

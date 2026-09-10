@@ -42,7 +42,7 @@ class StreamingBubble extends StatelessWidget {
             },
           ),
           ValueListenableBuilder<String>(
-            valueListenable: controller.streamingText,
+            valueListenable: controller.streamingAnswer,
             builder: (context, text, _) {
               return Container(
                 constraints: const BoxConstraints(maxWidth: 720),

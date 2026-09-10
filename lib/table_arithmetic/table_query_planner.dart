@@ -1,67 +1,64 @@
 import 'csv_table.dart';
 
-/// Turns a natural-language question into a [TableQuery], or refuses.
+/// Turns a question into a [TableQuery], or returns null when it is not one.
 ///
-/// Refusing is the important half. A planner that always produces *something*
-/// will confidently answer "how much annual leave do staff get?" with a sum of
-/// a sales column. Every rule here is high-precision by design: when the
-/// question does not clearly name an aggregation and a column that exists in
-/// the data, [planFor] returns null and the caller falls back to ordinary
-/// retrieval.
+/// Returning null matters most: a planner that always answers would reply to
+/// "how much annual leave do staff get?" with the sum of a sales column. So a
+/// query is only produced when the question clearly names an aggregation and
+/// a column that exists; otherwise the caller falls back to retrieval.
 ///
-/// This is deliberately rule-based rather than a second model call. The rules
-/// are deterministic, unit-testable, and add no latency; the production upgrade
-/// is to have the LLM emit these same fields as JSON against a schema, then
-/// validate them against the real columns exactly as [_resolveMetric] and
-/// [_findFilters] do here.
-class TableQueryPlanner {
-  const TableQueryPlanner._();
-
-  /// Words that mean "combine many rows into one number".
+/// Rule-based rather than a model call, so it is fast and testable.
+abstract final class TableQueryPlanner {
   static final RegExp _sumIntent = RegExp(
-      r'\b(total|totals|sum|combined|altogether|overall|how much|revenue for|'
-      r'how many)\b',
-      caseSensitive: false);
+    r'\b(total|totals|sum|combined|altogether|overall|how much|revenue for|'
+    r'how many)\b',
+    caseSensitive: false,
+  );
 
-  static final RegExp _averageIntent =
-      RegExp(r'\b(average|avg|mean|typical|per week|per month)\b',
-          caseSensitive: false);
+  static final RegExp _averageIntent = RegExp(
+    r'\b(average|avg|mean|typical|per week|per month)\b',
+    caseSensitive: false,
+  );
 
-  static final RegExp _maxIntent =
-      RegExp(r'\b(highest|most|maximum|max|best|top|largest)\b',
-          caseSensitive: false);
+  static final RegExp _maxIntent = RegExp(
+    r'\b(highest|most|maximum|max|best|top|largest)\b',
+    caseSensitive: false,
+  );
 
-  static final RegExp _minIntent =
-      RegExp(r'\b(lowest|least|minimum|min|worst|smallest|fewest)\b',
-          caseSensitive: false);
+  static final RegExp _minIntent = RegExp(
+    r'\b(lowest|least|minimum|min|worst|smallest|fewest)\b',
+    caseSensitive: false,
+  );
 
   static final RegExp _countIntent = RegExp(
-      r'\b(how many (records|rows|entries|transactions|weeks)|number of '
-      r'(records|rows|entries|transactions))\b',
-      caseSensitive: false);
+    r'\b(how many (records|rows|entries|transactions|weeks)|number of '
+    r'(records|rows|entries|transactions))\b',
+    caseSensitive: false,
+  );
 
   static final RegExp _breakdownIntent = RegExp(
-      r'\b(by|per|each|breakdown|broken down)\b',
-      caseSensitive: false);
+    r'\b(by|per|each|breakdown|broken down)\b',
+    caseSensitive: false,
+  );
 
-  static const Map<String, int> _months = {
-    'january': 1,
-    'february': 2,
-    'march': 3,
-    'april': 4,
-    'may': 5,
-    'june': 6,
-    'july': 7,
-    'august': 8,
-    'september': 9,
-    'october': 10,
-    'november': 11,
-    'december': 12,
-  };
+  static const List<String> _months = [
+    'january',
+    'february',
+    'march',
+    'april',
+    'may',
+    'june',
+    'july',
+    'august',
+    'september',
+    'october',
+    'november',
+    'december',
+  ];
 
-  /// Synonyms mapped onto column-name tokens, so a question can say "sales" and
-  /// reach a `revenue_ngn` column. Kept small on purpose — a broad synonym list
-  /// is how a planner starts answering questions it should have declined.
+  /// Question words mapped to column-name words, so "sales" can reach a
+  /// `revenue_ngn` column. Kept short on purpose: every synonym is another
+  /// question the planner might wrongly claim.
   static const Map<String, List<String>> _synonyms = {
     'sales': ['revenue'],
     'earned': ['revenue'],
@@ -78,30 +75,27 @@ class TableQueryPlanner {
     if (table.rowCount == 0) return null;
     final q = question.toLowerCase();
 
-    final aggregate = _resolveAggregate(q);
+    final aggregate = _findAggregate(q);
     if (aggregate == null) return null;
 
     final metric = aggregate == Aggregate.count
         ? null
-        : _resolveMetric(table, q);
-    // An aggregation verb with no column we recognise is not our question.
-    // "How much annual leave do staff get?" lands here, and should.
+        : _findMetricColumn(table, q);
+    // "How much annual leave do staff get?" has an aggregation word but no
+    // matching column, so it is not a table question.
     if (aggregate != Aggregate.count && metric == null) return null;
 
     final filters = _findFilters(table, question);
-    final range = table.dateColumn == null ? null : _findRange(q);
-    final groupBy = _findGroupBy(table, q, filters);
-
     return TableQuery(
       aggregate: aggregate,
       metric: metric?.name,
       filters: filters,
-      range: range,
-      groupBy: groupBy,
+      range: table.dateColumn == null ? null : _findDateRange(q),
+      groupBy: _findGroupBy(table, q, filters),
     );
   }
 
-  static Aggregate? _resolveAggregate(String q) {
+  static Aggregate? _findAggregate(String q) {
     // Order matters: "lowest total" is a min, not a sum.
     if (_countIntent.hasMatch(q)) return Aggregate.count;
     if (_minIntent.hasMatch(q)) return Aggregate.min;
@@ -111,24 +105,18 @@ class TableQueryPlanner {
     return null;
   }
 
-  /// Picks the numeric column whose name tokens best match the question.
-  ///
-  /// Returns null on a tie, because guessing between `revenue_ngn` and
-  /// `unit_price_ngn` produces a plausible number that is wrong, which is the
-  /// exact failure this whole feature exists to remove.
-  static CsvColumn? _resolveMetric(CsvTable table, String q) {
+  /// The numeric column whose name best matches the question. Null on a tie,
+  /// because guessing between `revenue_ngn` and `unit_price_ngn` gives a
+  /// plausible, wrong number.
+  static CsvColumn? _findMetricColumn(CsvTable table, String q) {
     final words = q.split(RegExp(r'[^a-z0-9]+')).toSet();
-    final expanded = <String>{...words};
-    for (final w in words) {
-      final syn = _synonyms[w];
-      if (syn != null) expanded.addAll(syn);
-    }
+    final expanded = {...words, for (final w in words) ...?_synonyms[w]};
 
     CsvColumn? best;
     var bestScore = 0;
     var tied = false;
     for (final col in table.numericColumns) {
-      final score = col.tokens.where(expanded.contains).length;
+      final score = col.nameWords.where(expanded.contains).length;
       if (score == 0) continue;
       if (score > bestScore) {
         best = col;
@@ -141,65 +129,69 @@ class TableQueryPlanner {
     return tied ? null : best;
   }
 
-  /// Any distinct value of a text column that appears verbatim in the question.
+  /// Text-column values that appear in the question, at most one per column.
   static List<ColumnFilter> _findFilters(CsvTable table, String question) {
     final filters = <ColumnFilter>[];
     for (final col in table.textColumns) {
       for (final value in table.distinctValues(col)) {
-        if (value.length < 3) continue; // avoid matching stray short tokens
+        if (value.length < 3) continue; // too short to match reliably
         final pattern = RegExp(
           r'\b' + RegExp.escape(value) + r'\b',
           caseSensitive: false,
         );
         if (pattern.hasMatch(question)) {
           filters.add(ColumnFilter(col.name, value));
-          break; // one value per column
+          break;
         }
       }
     }
     return filters;
   }
 
-  /// "january 2026", "q1 2026", "2026". Anchored to a year so a bare month
-  /// never silently spans every year in the data.
-  static DateRange? _findRange(String q) {
-    final year = RegExp(r'\b(20\d{2})\b').firstMatch(q);
-    if (year == null) return null;
-    final y = int.parse(year.group(1)!);
+  /// "january 2026", "q1 2026" or "2026". A year is required, so a bare month
+  /// never silently covers every year in the data.
+  static DateRange? _findDateRange(String q) {
+    final yearMatch = RegExp(r'\b(20\d{2})\b').firstMatch(q);
+    if (yearMatch == null) return null;
+    final year = int.parse(yearMatch.group(1)!);
 
-    for (final entry in _months.entries) {
-      if (!RegExp('\\b${entry.key}\\b').hasMatch(q)) continue;
-      final m = entry.value;
+    // DateTime rolls month 13 over into January of the next year.
+    for (var i = 0; i < _months.length; i++) {
+      final name = _months[i];
+      if (!RegExp('\\b$name\\b').hasMatch(q)) continue;
       return DateRange(
-        DateTime(y, m),
-        m == 12 ? DateTime(y + 1, 1) : DateTime(y, m + 1),
-        '${entry.key[0].toUpperCase()}${entry.key.substring(1)} $y',
+        DateTime(year, i + 1),
+        DateTime(year, i + 2),
+        '${name[0].toUpperCase()}${name.substring(1)} $year',
       );
     }
 
-    final quarter = RegExp(r'\bq([1-4])\b').firstMatch(q);
-    if (quarter != null) {
-      final n = int.parse(quarter.group(1)!);
-      final startMonth = (n - 1) * 3 + 1;
+    final quarterMatch = RegExp(r'\bq([1-4])\b').firstMatch(q);
+    if (quarterMatch != null) {
+      final quarter = int.parse(quarterMatch.group(1)!);
+      final firstMonth = (quarter - 1) * 3 + 1;
       return DateRange(
-        DateTime(y, startMonth),
-        startMonth + 3 > 12 ? DateTime(y + 1, 1) : DateTime(y, startMonth + 3),
-        'Q$n $y',
+        DateTime(year, firstMonth),
+        DateTime(year, firstMonth + 3),
+        'Q$quarter $year',
       );
     }
 
-    return DateRange(DateTime(y), DateTime(y + 1), '$y');
+    return DateRange(DateTime(year), DateTime(year + 1), '$year');
   }
 
-  /// Only group when the question asks for a breakdown *and* names a column
-  /// that is not already pinned by a filter.
+  /// A text column to break the result down by, when the question asks for a
+  /// breakdown and names a column that is not already filtered on.
   static String? _findGroupBy(
-      CsvTable table, String q, List<ColumnFilter> filters) {
+    CsvTable table,
+    String q,
+    List<ColumnFilter> filters,
+  ) {
     if (!_breakdownIntent.hasMatch(q)) return null;
-    final pinned = filters.map((f) => f.column.toLowerCase()).toSet();
+    final filtered = filters.map((f) => f.column.toLowerCase()).toSet();
     for (final col in table.textColumns) {
-      if (pinned.contains(col.name.toLowerCase())) continue;
-      if (col.tokens.any((t) => RegExp('\\b$t\\b').hasMatch(q))) {
+      if (filtered.contains(col.name.toLowerCase())) continue;
+      if (col.nameWords.any((w) => RegExp('\\b$w\\b').hasMatch(q))) {
         return col.name;
       }
     }

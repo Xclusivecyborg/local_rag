@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_rag/ollama/ollama_client.dart';
-import 'package:local_rag/question_answering/rag_controller.dart';
+import 'package:local_rag/question_answering/model_preferences.dart';
 
 OllamaModel model(String name) =>
     OllamaModel(name: name, capabilities: const ['completion']);
@@ -12,7 +12,7 @@ void main() {
     test('a preferred model wins over one that merely sorts earlier', () {
       final installed = [model('gemma4:latest'), model('gpt-oss:latest')];
       expect(
-        RagController.preferredOf(installed, RagController.preferredChatModels),
+        ModelPreferences.pick(installed, ModelPreferences.chat),
         'gpt-oss:latest',
       );
     });
@@ -20,7 +20,7 @@ void main() {
     test('the preference ignores the tag', () {
       final installed = [model('gemma4:latest'), model('gpt-oss:20b')];
       expect(
-        RagController.preferredOf(installed, RagController.preferredChatModels),
+        ModelPreferences.pick(installed, ModelPreferences.chat),
         'gpt-oss:20b',
         reason: 'a preference for gpt-oss must not require the :latest tag',
       );
@@ -28,8 +28,8 @@ void main() {
 
     test('preference order decides when several are installed', () {
       final installed = [model('alpha:latest'), model('beta:latest')];
-      expect(RagController.preferredOf(installed, ['beta', 'alpha']), 'beta:latest');
-      expect(RagController.preferredOf(installed, ['alpha', 'beta']), 'alpha:latest');
+      expect(ModelPreferences.pick(installed, ['beta', 'alpha']), 'beta:latest');
+      expect(ModelPreferences.pick(installed, ['alpha', 'beta']), 'alpha:latest');
     });
 
     test('falls back to the first installed model when none is preferred', () {
@@ -37,14 +37,14 @@ void main() {
       // still start usable rather than with an empty dropdown.
       final installed = [model('gemma4:latest'), model('llama3:latest')];
       expect(
-        RagController.preferredOf(installed, RagController.preferredChatModels),
+        ModelPreferences.pick(installed, ModelPreferences.chat),
         'gemma4:latest',
       );
     });
 
     test('no models installed is null, not a crash', () {
       expect(
-        RagController.preferredOf(const [], RagController.preferredChatModels),
+        ModelPreferences.pick(const [], ModelPreferences.chat),
         isNull,
       );
     });
@@ -54,7 +54,7 @@ void main() {
       // different model with different behaviour.
       final installed = [model('gpt-oss-abliterated:latest')];
       expect(
-        RagController.preferredOf(installed, RagController.preferredChatModels),
+        ModelPreferences.pick(installed, ModelPreferences.chat),
         'gpt-oss-abliterated:latest',
         reason: 'it is the only model, so it is chosen as the fallback — but '
             'as a fallback, not as a preference match',
@@ -64,7 +64,7 @@ void main() {
         model('gpt-oss-abliterated:latest'),
       ];
       expect(
-        RagController.preferredOf(withOther, RagController.preferredChatModels),
+        ModelPreferences.pick(withOther, ModelPreferences.chat),
         'gemma4:latest',
         reason: 'no real gpt-oss present, so the fallback is first-sorted',
       );

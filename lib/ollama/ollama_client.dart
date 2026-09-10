@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-/// A model that is already pulled onto this machine.
+/// A model already downloaded to this machine.
 class OllamaModel {
   OllamaModel({
     required this.name,
@@ -13,23 +13,15 @@ class OllamaModel {
 
   final String name;
   final List<String> capabilities;
+  final String? parameterSize; // e.g. "20B", shown in the model picker
 
-  /// "20B", "7B" — shown next to the name in the model picker, because two
-  /// tags of the same model are otherwise indistinguishable in a dropdown.
-  final String? parameterSize;
-
-  /// Whether this model can hold a conversation.
   bool get canChat => capabilities.contains('completion');
 
-  /// Whether this model can produce embeddings.
-  ///
-  /// This deliberately reads `capabilities` rather than `details.embedding_length`.
-  /// Chat models also report an `embedding_length` (it is their internal hidden
-  /// size, e.g. 2880 for gpt-oss), so filtering on that field would happily
-  /// offer you a chat model as an embedder and then fail at request time.
+  /// Read from `capabilities`, not `embedding_length`: chat models report an
+  /// embedding length too, but cannot be used as embedders.
   bool get canEmbed => capabilities.contains('embedding');
 
-  /// Reasoning models emit a separate `thinking` field before the answer.
+  /// Reasoning models stream a separate `thinking` field before the answer.
   bool get thinks => capabilities.contains('thinking');
 
   factory OllamaModel.fromJson(Map<String, dynamic> json) {
@@ -48,18 +40,17 @@ class OllamaModel {
 
 class ChatMessage {
   const ChatMessage(this.role, this.content);
-  final String role; // 'system' | 'user' | 'assistant'
+  final String role; // 'system', 'user' or 'assistant'
   final String content;
 
   Map<String, dynamic> toJson() => {'role': role, 'content': content};
 }
 
-/// One streamed fragment from /api/chat.
+/// One streamed piece of a chat reply.
 class ChatChunk {
-  const ChatChunk({this.content, this.thinking, this.done = false});
+  const ChatChunk({this.content, this.thinking});
   final String? content;
   final String? thinking;
-  final bool done;
 }
 
 class OllamaException implements Exception {
@@ -69,38 +60,29 @@ class OllamaException implements Exception {
   String toString() => message;
 }
 
-/// Thin Dart client over the Ollama HTTP API.
-///
-/// Everything the app needs is plain REST on localhost, which is why this
-/// project needs no Python sidecar: no LangChain, no Chroma server, no
-/// sentence-transformers, no packaging a Python runtime into the .app bundle.
+/// A small client for Ollama's HTTP API on localhost.
 class OllamaClient {
   OllamaClient({Uri? baseUrl, http.Client? client})
-      : baseUrl = baseUrl ?? Uri.parse('http://127.0.0.1:11434'),
-        _client = client ?? http.Client();
+    : baseUrl = baseUrl ?? Uri.parse('http://127.0.0.1:11434'),
+      _client = client ?? http.Client();
 
   final Uri baseUrl;
   final http.Client _client;
 
-  /// mxbai-embed-large is an asymmetric model: queries are meant to carry a
-  /// task prefix, passages are not.
-  ///
-  /// Measured on sample_kb it makes no difference at all — hit@1 83% / hit@3
-  /// 92% with it and without it (tool/retrieval_quality/experiment.dart, section C). It is kept
-  /// because it is free and may matter at larger scale, but it is not doing
-  /// work here. A/B your retrieval tricks rather than trusting the README.
+  /// mxbai-embed-large expects this prefix on search queries, not on
+  /// documents. On sample_kb it made no measurable difference.
   static const String mxbaiQueryPrefix =
       'Represent this sentence for searching relevant passages: ';
 
-  /// Cheap liveness probe: the installed Ollama version, or null if it is not
-  /// reachable. Never throws — "is it up?" is a question with a `no` answer,
-  /// not an exceptional condition, and the caller polls this in a loop.
+  /// The installed Ollama version, or null if Ollama is not reachable.
+  /// Never throws, because it is polled while Ollama starts.
   Future<String?> version({
     Duration timeout = const Duration(seconds: 2),
   }) async {
     try {
-      final res =
-          await _client.get(baseUrl.resolve('/api/version')).timeout(timeout);
+      final res = await _client
+          .get(baseUrl.resolve('/api/version'))
+          .timeout(timeout);
       if (res.statusCode != 200) return null;
       return (jsonDecode(res.body) as Map<String, dynamic>)['version']
           as String?;
@@ -109,6 +91,7 @@ class OllamaClient {
     }
   }
 
+  /// Installed models, sorted by name.
   Future<List<OllamaModel>> listModels() async {
     final http.Response res;
     try {
@@ -125,12 +108,11 @@ class OllamaClient {
       throw OllamaException('GET /api/tags failed (${res.statusCode})');
     }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
-    final models = (body['models'] as List? ?? const [])
+    return (body['models'] as List? ?? const [])
         .cast<Map<String, dynamic>>()
         .map(OllamaModel.fromJson)
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));
-    return models;
   }
 
   /// Embeds [input] in batches. Returns one vector per input, in order.
@@ -140,12 +122,9 @@ class OllamaClient {
     int batchSize = 16,
     void Function(int done, int total)? onProgress,
   }) async {
-    final out = <List<double>>[];
+    final vectors = <List<double>>[];
     for (var i = 0; i < input.length; i += batchSize) {
-      final batch = input.sublist(
-        i,
-        (i + batchSize).clamp(0, input.length),
-      );
+      final batch = input.sublist(i, (i + batchSize).clamp(0, input.length));
       final http.Response res;
       try {
         res = await _client
@@ -164,38 +143,29 @@ class OllamaClient {
         );
       }
       final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final vectors = (body['embeddings'] as List?)?.cast<List>();
-      if (vectors == null || vectors.length != batch.length) {
+      final batchVectors = (body['embeddings'] as List?)?.cast<List>();
+      if (batchVectors == null || batchVectors.length != batch.length) {
         throw OllamaException(
-          'Expected ${batch.length} embeddings, got ${vectors?.length}',
+          'Expected ${batch.length} embeddings, got ${batchVectors?.length}',
         );
       }
-      for (final v in vectors) {
-        out.add(v.map((e) => (e as num).toDouble()).toList());
+      for (final v in batchVectors) {
+        vectors.add([for (final x in v) (x as num).toDouble()]);
       }
-      onProgress?.call(out.length, input.length);
+      onProgress?.call(vectors.length, input.length);
     }
-    return out;
+    return vectors;
   }
 
   Future<List<double>> embedOne({
     required String model,
     required String input,
-  }) async {
-    final r = await embed(model: model, input: [input]);
-    return r.first;
-  }
+  }) async => (await embed(model: model, input: [input])).first;
 
-  /// Streams a chat completion. Ollama returns newline-delimited JSON when
-  /// `stream: true` — one JSON object per line, not SSE, so there is no
-  /// `data:` prefix to strip.
+  /// Streams a chat reply. Ollama sends one JSON object per line.
   ///
-  /// Cancelling the subscription on this stream closes the underlying
-  /// connection, which is how the UI's stop button aborts generation.
-  ///
-  /// Set [think] to false on a reasoning model when you want the answer and not
-  /// the scratchpad — a one-line rewrite does not need several seconds of
-  /// visible deliberation first. Ignored by models without the capability.
+  /// Cancelling the subscription closes the connection, which stops
+  /// generation. Set [think] to false to skip a reasoning model's thinking.
   Stream<ChatChunk> chat({
     required String model,
     required List<ChatMessage> messages,
@@ -206,7 +176,7 @@ class OllamaClient {
       ..headers['Content-Type'] = 'application/json'
       ..body = jsonEncode({
         'model': model,
-        'messages': messages.map((m) => m.toJson()).toList(),
+        'messages': [for (final m in messages) m.toJson()],
         'stream': true,
         'options': {'temperature': temperature},
         'think': ?think,
@@ -218,38 +188,32 @@ class OllamaClient {
     } on Object catch (e) {
       throw OllamaException('Could not reach Ollama at $baseUrl: $e');
     }
-
     if (res.statusCode != 200) {
       final body = await res.stream.bytesToString();
       throw OllamaException('POST /api/chat failed (${res.statusCode}): $body');
     }
 
-    final lines =
-        res.stream.transform(utf8.decoder).transform(const LineSplitter());
-
+    final lines = res.stream
+        .transform(utf8.decoder)
+        .transform(const LineSplitter());
     await for (final line in lines) {
       if (line.trim().isEmpty) continue;
-      final Map<String, dynamic> obj;
+      final Map<String, dynamic> json;
       try {
-        obj = jsonDecode(line) as Map<String, dynamic>;
+        json = jsonDecode(line) as Map<String, dynamic>;
       } on FormatException {
-        continue; // ignore keep-alive / partial noise
+        continue; // keep-alive or partial line
       }
-      if (obj['error'] != null) {
-        throw OllamaException('Ollama error: ${obj['error']}');
+      if (json['error'] != null) {
+        throw OllamaException('Ollama error: ${json['error']}');
       }
-      final msg = obj['message'] as Map<String, dynamic>?;
-      final content = msg?['content'] as String?;
-      // Reasoning models (gpt-oss) stream their scratchpad here first.
-      final thinking = msg?['thinking'] as String?;
-      final done = obj['done'] == true;
-
-      if ((content != null && content.isNotEmpty) ||
-          (thinking != null && thinking.isNotEmpty) ||
-          done) {
-        yield ChatChunk(content: content, thinking: thinking, done: done);
+      final message = json['message'] as Map<String, dynamic>?;
+      final content = message?['content'] as String?;
+      final thinking = message?['thinking'] as String?;
+      if ((content?.isNotEmpty ?? false) || (thinking?.isNotEmpty ?? false)) {
+        yield ChatChunk(content: content, thinking: thinking);
       }
-      if (done) return;
+      if (json['done'] == true) return;
     }
   }
 

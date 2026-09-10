@@ -60,7 +60,7 @@ void main() {
 Future<void> _stageA(OllamaClient ollama, String model, Directory tmp) async {
   stdout.writeln(bar('A. sample_kb, real embeddings, model=$model'));
 
-  final files = await collectFiles(Directory('sample_kb'));
+  final files = await findSupportedFiles(Directory('sample_kb'));
   if (files.isEmpty) {
     stdout.writeln('sample_kb not found — run from the project root.');
     return;

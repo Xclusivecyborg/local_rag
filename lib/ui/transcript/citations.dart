@@ -119,7 +119,7 @@ class SourceBadge extends StatelessWidget {
             score == null
                 ? label
                 : '$label · best match ${score.toStringAsFixed(2)} '
-                      '(gate ${turn.gate?.toStringAsFixed(2) ?? '—'})',
+                      '(gate ${turn.threshold?.toStringAsFixed(2) ?? '—'})',
             style: TextStyle(
               fontSize: 10.5,
               color: turn.grounded

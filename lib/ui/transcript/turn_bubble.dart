@@ -9,7 +9,7 @@ class TurnBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isUser = turn.role == 'user';
+    final isUser = turn.isUser;
     final theme = Theme.of(context);
 
     return Padding(

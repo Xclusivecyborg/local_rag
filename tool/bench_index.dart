@@ -35,22 +35,22 @@ Future<BenchIndex> buildIndex({
   required OllamaClient ollama,
   required List<File> files,
   required String embeddingModel,
-  int? targetChars,
-  void Function(IngestProgress)? report,
+  int? chunkSize,
+  void Function(IngestProgress)? onProgress,
 }) async {
   final dir = await Directory.systemTemp.createTemp('bench_idx');
   final result = await Ingestor(ollama).ingest(
     files: files,
     embeddingModel: embeddingModel,
-    report: report,
-    targetChars: targetChars ?? kDefaultTargetChars,
-    indexFactory: (model, dimension) => ObjectBoxStore.create(
+    onProgress: onProgress,
+    chunkSize: chunkSize ?? defaultChunkSize,
+    createIndex: (model, dimension) => ObjectBoxStore.create(
       Directory('${dir.path}/objectbox'),
       embeddingModel: model,
       dimension: dimension,
     ),
   );
-  return BenchIndex(result.store, dir);
+  return BenchIndex(result.index, dir);
 }
 
 /// Indexes pre-built chunks, for tools that control their own chunking.

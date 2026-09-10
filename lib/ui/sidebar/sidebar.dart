@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:local_rag/question_answering/rag_controller.dart';
+import 'package:local_rag/question_answering/retrieval_settings.dart';
 import 'package:local_rag/ui/sidebar/connection_card.dart';
 import 'package:local_rag/ui/sidebar/error_card.dart';
 import 'package:local_rag/ui/sidebar/index_status.dart';
@@ -54,11 +55,11 @@ class Sidebar extends StatelessWidget {
               emptyHint: 'Run: ollama pull locusai/all-minilm-l6-v2',
             ),
             if (c.embedModel != null &&
-                !RagController.hasMeasuredThreshold(c.embedModel)) ...[
+                !RetrievalSettings.hasMeasuredThreshold(c.embedModel)) ...[
               const SizedBox(height: 6),
               Text(
                 'Retrieval gate not measured for this model — using '
-                '${RagController.unmeasuredThreshold}. '
+                '${RetrievalSettings.unmeasuredThreshold}. '
                 'Run tool/retrieval_quality/compare_embedders.dart to calibrate it.',
                 style: TextStyle(fontSize: 10.5, color: theme.hintColor),
               ),
@@ -68,13 +69,13 @@ class Sidebar extends StatelessWidget {
             FilledButton.tonalIcon(
               onPressed: c.isIndexing ? null : onPick,
               icon: const Icon(Icons.folder_open, size: 18),
-              label: Text(c.store == null ? 'Choose folder…' : 'Re-index…'),
+              label: Text(c.index == null ? 'Choose folder…' : 'Re-index…'),
             ),
             const SizedBox(height: 12),
             if (c.isIndexing)
               IndexingStatus(controller: c)
-            else if (c.store != null)
-              IndexedStatus(store: c.store!),
+            else if (c.index != null)
+              IndexedStatus(index: c.index!),
             const SizedBox(height: 28),
             const Divider(),
             const SizedBox(height: 8),
