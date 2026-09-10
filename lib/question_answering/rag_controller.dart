@@ -63,6 +63,7 @@ class RagController extends ChangeNotifier {
   final streamingAnswer = ValueNotifier<String>('');
   final streamingThinking = ValueNotifier<String>('');
   StreamSubscription<ChatChunk>? _answerSubscription;
+  int _currentTurn = 0; // stop() bumps this so an unfinished ask() gives up
 
   /// How many earlier turns are sent with a question, so follow-ups make sense.
   static const int maxHistoryTurns = 8;
@@ -271,6 +272,7 @@ class RagController extends ChangeNotifier {
     }
 
     turns.add(Turn(role: 'user', content: question));
+    final turn = ++_currentTurn;
     isStreaming = true;
     error = null;
     notifyListeners();
@@ -281,6 +283,7 @@ class RagController extends ChangeNotifier {
     final search = computed == null
         ? await _searchDocuments(question, chat)
         : null;
+    if (turn != _currentTurn) return; // stopped while searching
     final topScore = search?.chunks.firstOrNull?.score;
     final grounded = topScore != null && topScore >= threshold;
     final sources = grounded ? search!.chunks : const <ScoredChunk>[];
@@ -406,6 +409,7 @@ class RagController extends ChangeNotifier {
   /// Stops the answer in progress. Cancelling closes the HTTP request, so
   /// Ollama stops generating too.
   Future<void> stop() async {
+    _currentTurn++;
     await _answerSubscription?.cancel();
     _answerSubscription = null;
     if (!isStreaming) return;
