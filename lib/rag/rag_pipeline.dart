@@ -235,6 +235,12 @@ class RagPipeline {
   Stream<ChatChunk> generate(String chatModel, PreparedPrompt prompt) =>
       ollama.chatStream(model: chatModel, messages: prompt.messages);
 
+  /// Earlier turns as condenser context, long answers cut to their start.
+  static List<String> _forCondenser(List<Turn> history) => [
+    for (final turn in history)
+      '${turn.role}: ${turn.content.length > 200 ? '${turn.content.substring(0, 200)}…' : turn.content}',
+  ];
+
   /// Condenses, embeds and searches. Best match first.
   Future<({List<ScoredChunk> hits, String? searchedFor})> _search(
     String question, {
@@ -253,10 +259,7 @@ class RagPipeline {
       );
       final condensed = await condenser.condense(
         question: question,
-        history: [
-          for (final turn in history)
-            '${turn.role}: ${turn.content.length > 200 ? '${turn.content.substring(0, 200)}…' : turn.content}',
-        ],
+        history: _forCondenser(history),
       );
       if (condensed.wasCondensed) rewritten = condensed.text;
     }
