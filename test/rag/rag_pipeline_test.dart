@@ -28,7 +28,11 @@ week_starting,location,product_line,revenue_ngn
 ''';
 
 /// Batches of more than one input are documents; a single input is a query.
-OllamaClient fakeOllama({List<String>? chatRequests}) => OllamaClient(
+/// Every chat request gets [chatReply].
+OllamaClient fakeOllama({
+  List<String>? chatRequests,
+  String chatReply = 'short query',
+}) => OllamaClient(
   client: MockClient.streaming((request, body) async {
     final json = jsonDecode(await body.bytesToString()) as Map;
     String reply;
@@ -42,7 +46,7 @@ OllamaClient fakeOllama({List<String>? chatRequests}) => OllamaClient(
     } else {
       chatRequests?.add(jsonEncode(json['messages']));
       reply = jsonEncode({
-        'message': {'content': 'short query'},
+        'message': {'content': chatReply},
         'done': true,
       });
     }
