@@ -27,12 +27,31 @@ must install Ollama.
 | Embeddings | `locusai/all-minilm-l6-v2` | 384-d, via Ollama |
 | Vector search | ObjectBox | HNSW on disk, cosine distance |
 | Aggregation | `CsvTable` + planner | exact, over every row |
-| Orchestration | Plain Dart | no LangChain, no Python |
+| Building blocks | [`rag_blocks`](../rag_blocks) | splitter, condenser, tables, Ollama client: pure Dart |
+| Orchestration | `lib/rag/rag_pipeline.dart` | no LangChain, no Python |
 | UI | Flutter macOS | streaming, citations |
 
 There is deliberately **no Python sidecar**. Everything LangChain would have done
 here is a few hundred lines of Dart, and skipping it avoids packaging a Python
 runtime into a signed `.app`.
+
+The split mirrors LangChain's. The parts that know nothing about this app live
+in their own package, `rag_blocks`, which depends only on `package:http` and
+runs under the plain Dart VM. It is a separate repo that sits next to this one
+(`../rag_blocks`); clone both into the same folder before running `flutter pub
+get`.
+
+```dart
+import 'package:rag_blocks/rag_blocks.dart';
+
+final ollama = await OllamaClient.connect(); // starts `ollama serve` if needed
+
+final splitter = RecursiveCharacterTextSplitter(chunkSize: 600, chunkOverlap: 200);
+final chunks = splitter.splitText(text, source: 'staff_handbook.md');
+```
+
+The app composes them in `lib/rag/rag_pipeline.dart`, one numbered step at a
+time, and plugs in ObjectBox as the kit's `VectorStore`.
 
 ## Running it
 
@@ -49,6 +68,68 @@ Both are picked automatically at startup when installed, via
 list the app takes whichever model sorts first alphabetically, which is how
 `gemma4` ends up beating `gpt-oss` — on spelling rather than on merit. Any
 other installed model can still be chosen from the sidebar.
+
+## Two RAGs: naive and optimized
+
+`lib/main.dart` picks which RAG the app starts with:
+
+```dart
+var recipe = RagRecipe.naive;
+
+// Uncomment to start with every optimization on, then hot restart.
+// recipe = RagRecipe.optimized;
+```
+
+Both run through the same `RagPipeline`. A `RagRecipe` is a set of switches,
+one per optimization this project measured, and the sidebar ticks off the ones
+that are on:
+
+| Switch | naive | optimized | What it fixes |
+|---|---|---|---|
+| `chunkSize` | 1200 | 600 | short questions match small chunks (6/12 vs 10/12 retrieve) |
+| `csvAsProse` | off | on | `location: Victoria Island. units_sold: 41.` embeds; a raw CSV line doesn't |
+| `computeFromTables` | off | on | totals computed over every row, not added up from 5 chunks |
+| `condenseQueries` | off | on | long questions rewritten into a short search query |
+| `maxChunksPerSource` | none | 2 | the 240-row CSV can't fill every slot |
+| `relevanceGate` | off | on | "Hello" gets a greeting, not the returns policy |
+| `strictGrounding` | off | on | the model won't estimate a total from a partial sample |
+| `guardedPrompt` | off | on | the system prompt forbids inventing company facts; naive gets the tutorial's "answer using the excerpts" |
+
+The app can also switch while it runs: the **Optimize** switch in the top
+corner of the recipe card flips between naive and optimized. The conversation
+stays on screen, so the same question can be asked under both. The switch is
+greyed out while an answer streams or a folder is indexing.
+
+Each recipe has its own index folder, so switching never forces a re-index once
+both have been built. Switching to a recipe that has never been indexed shows a
+"No … index yet" message; choose the knowledge base folder once to build it.
+Before a demo, index `sample_kb/` once in each mode.
+
+To measure the difference:
+
+```bash
+flutter test tool/retrieval_quality/before_after.dart
+```
+
+It runs both recipes through `RagPipeline.prepare` on the same questions and
+writes `talk/eval/before_after.json` with every question, answer and score.
+
+Measured 2026-10-19 on `sample_kb/` with `locusai/all-minilm-l6-v2` and `gpt-oss`:
+
+| | naive | optimized |
+|---|---|---|
+| Right file in the model's context (23 questions) | 22 | 23 |
+| Right file ranked first (23) | 19 | 20 |
+| Small talk answered without documents (12) | 0 | 11 |
+| Totals exactly right, end to end (6) | 0 | 6 |
+| Median time to build the prompt | 24 ms | 38 ms |
+
+Naive's lookups look fine because it never filters: the right file usually rides
+along in its top five, along with everything else. The difference is what it
+costs: every "Hello" gets five excerpts pasted in, and every total is wrong.
+Naive's totals fail because the sales rows never reach the model at all, and
+gpt-oss says so rather than guessing. Naive misses the long employee-discount
+question; the optimized recipe's condensed query finds it.
 
 ## The evaluation harness
 
@@ -142,7 +223,7 @@ Retrieval and computation are mutually exclusive per turn, and the UI badge says
 which one answered. "5 of 43 chunks" and "80 of 240 rows" deserve very different
 amounts of trust.
 
-The **Strict grounding** switch still governs the retrieval path, where the model
+The `strictGrounding` recipe switch still governs the retrieval path, where the model
 *is* working from a partial sample. It is deliberately not applied to computed
 answers — telling a model to warn about incomplete data when the figure covers
 every row makes it undermine a number that is exact.
@@ -539,36 +620,33 @@ lib/
   main.dart                    desktop UI (Flutter's entry point; must live here)
   libobjectbox.dylib           native lib for `flutter test` (gitignored)
 
-  ollama/                      starting and talking to the local model server
-    ollama_client.dart         /api/tags, /api/embed, /api/chat (NDJSON stream)
-    ollama_launcher.dart       finds the ollama binary and starts it, detached
-
-  document_indexing/           files in, embedded chunks out
-    chunker.dart               paragraph-aware splitting, overlap, source spans
-    ingest.dart                file reading, CSV to prose, batch embedding
+  rag/                         the workflow: this app's RAG, step by step
+    rag_recipe.dart            the switches, and the naive / optimized presets
+    rag_pipeline.dart          ingest (load, chunk, embed, store) and prepare (compute or retrieve, gate, prompt)
+    rag_prompts.dart           every piece of text sent to the chat model
+    retrieval_settings.dart    top-k, per-file cap, measured per-model gates
 
   vector_search/               storing vectors and finding the nearest ones
-    objectbox_store.dart       the index: ObjectBox HNSW on disk
-    stored_chunk.dart          chunk/score types, and the padding rules
+    objectbox_store.dart       the index: ObjectBox HNSW on disk, a rag_blocks VectorStore
+    vectors.dart               normalising, and the padding rules
     vector_entities.dart       one entity per embedding dimension
     objectbox.g.dart           generated (see `objectbox:` in pubspec.yaml)
     objectbox-model.json       generated: entity/property UID history
 
-  table_arithmetic/            exact totals over rows, where retrieval cannot
-    csv_table.dart             CSV as a table: typed columns, exact aggregation
-    table_query_planner.dart   question -> TableQuery, or null (refusing is the point)
-
-  question_answering/          turning a question into a grounded answer
-    query_condenser.dart       rewrites long questions before embedding
-    rag_controller.dart        state, connection, retrieval gating, prompt assembly
+  question_answering/          feeding the pipeline and streaming its answers
+    rag_controller.dart        state, connection, indexing, streaming, stop
+    model_preferences.dart     which installed models to start on
 
   ui/                          widgets, one per file
-    app.dart                   MaterialApp and theme
+    app.dart                   MaterialApp
+    theme/app_theme.dart       the dark theme, fixed-meaning colours, the mono face
+    widgets/panel.dart         shared parts: Panel, IconTile, Tag, StatusDot, PanelHeader
     home_page.dart             the three-pane layout and folder picking
-    composer.dart              the input box and send/stop
+    composer.dart              the input box, send/stop, and which recipe will answer
     markdown_text.dart         streaming-safe Markdown renderer
     sidebar/                   the left configuration panel
       sidebar.dart             assembles the panel
+      recipe_card.dart         which recipe is running, and its optimizations
       section_label.dart       small caps heading
       model_dropdown.dart      chat / embedding model pickers
       connection_card.dart     Ollama state, Connect and Stop
@@ -576,7 +654,7 @@ lib/
       error_card.dart          anything that went wrong
     transcript/                the conversation view
       transcript.dart          the scrolling list
-      empty_state.dart         first-run guidance
+      empty_state.dart         first-run guidance, and one-click example questions
       turn_bubble.dart         one finished message
       streaming_bubble.dart    the in-flight message and its thinking pane
       citations.dart           source chips, and the retrieved-vs-computed badge
@@ -591,15 +669,30 @@ tool/
     gate_shape.dart            can the gate pass short questions but not chitchat?
     why_did_it_miss.dart       post-mortem: full top-5 for one failing question
     condense_eval.dart         does query condensing help, and what does it break?
+    before_after.dart          naive vs optimized recipe, written to talk/eval/
+  ui_preview/
+    app_preview.dart           renders the app's screens to PNGs, no screen recording needed
   index_benchmarks/            which vector backend, and from what corpus size?
     obx_bench.dart             build time, query latency and size vs corpus size
+
+../rag_blocks/                 the building blocks, pure Dart, in their own repo
+  lib/src/
+    document_loaders/          findSupportedFiles
+    text_splitters/            RecursiveCharacterTextSplitter: paragraphs, sentences, overlap
+    document_transformers/     csvToProse
+    tables/                    CsvTable, and TableQueryPlanner (refusing is the point)
+    query_transformers/        QueryCondenser: rewrites long questions before embedding
+    llms/                      OllamaClient: connect(), chat() / chatStream(), embed(), listModels()
+                               OllamaLauncher: finds the ollama binary, starts it detached, stops it
+    vector_stores/             the VectorStore interface, StoredChunk, ScoredChunk
+    retrievers/                capPerSource
 
 sample_kb/                     sample business knowledge base
 ```
 
 ### Tests
 
-131 total. `conversation_test.dart` and `index_directory_test.dart` need Ollama
+220 total: 86 in the app, 134 in `rag_blocks`. `conversation_test.dart` and `index_directory_test.dart` need Ollama
 running; both skip themselves if it is unreachable.
 
 Every script in `tool/` runs under `flutter test`, not `dart run` — the
@@ -608,18 +701,26 @@ reaching the index pulls in Flutter and the plain Dart VM cannot compile it.
 
 | file | what it covers |
 |---|---|
-| `document_indexing/chunker_test.dart` | paragraph splitting, overlap, the size ceiling, source offsets incl. CRLF files |
-| `document_indexing/csv_to_prose_test.dart` | CSV rendered as labelled prose |
 | `vector_search/objectbox_store_test.dart` | search, per-source cap, persistence, the wrong-size-vector footgun |
 | `vector_search/padding_test.dart` | that zero-padding leaves cosine similarity exactly unchanged |
 | `question_answering/index_directory_test.dart` | the real indexing path: build, persist, reload, re-index |
-| `table_arithmetic/table_test.dart` | exact arithmetic vs independently computed ground truth, and every case the planner must decline |
-| `question_answering/condenser_test.dart` | when to rewrite, and every way a rewrite is rejected |
+| `question_answering/recipe_switch_test.dart` | the Optimize switch: each recipe opens its own index, the "no index yet" message, the conversation is kept, no switching mid-answer |
+| `rag/rag_pipeline_test.dart` | what each recipe switch changes: raw vs prose CSV, the gate, tables, condensing |
 | `question_answering/retrieval_threshold_test.dart` | per-model gates, and a tripwire that fails if the chunk size changes without re-measuring them |
 | `question_answering/default_model_test.dart` | which model the app starts on when several are installed |
 | `question_answering/conversation_test.dart` | integration against a live model, incl. the January question answering 71,882,000 not 7,663,000 |
-| `ollama/launcher_test.dart` | paths a working machine never reaches: no binary, dangling symlink, failed spawn, start timeout, SIGTERM/SIGKILL escalation, a server we did not start |
 | `ui/markdown_test.dart` | renderer, including every streaming prefix |
+
+In `rag_blocks/test/`, run with `dart test` from that repo:
+
+| file | what it covers |
+|---|---|
+| `recursive_character_text_splitter_test.dart` | paragraph splitting, overlap, the size ceiling, source offsets incl. CRLF files |
+| `csv_to_prose_test.dart` | CSV rendered as labelled prose |
+| `table_test.dart` | exact arithmetic vs independently computed ground truth, and every case the planner must decline |
+| `query_condenser_test.dart` | when to rewrite, and every way a rewrite is rejected |
+| `ollama_client_test.dart` | `chat` waits for the whole reply, `chatStream` yields pieces, errors are thrown |
+| `ollama_launcher_test.dart` | paths a working machine never reaches: no binary, dangling symlink, failed spawn, start timeout, SIGTERM/SIGKILL escalation, a server we did not start, the menu-bar app that restarts its server |
 
 ## Not handled
 
@@ -638,13 +739,23 @@ chunks. The crossover was around **500 chunks** — below it the exact scan was
 marginally faster, above it HNSW is flat in corpus size while a linear scan
 grows: 36× faster at 8,000 chunks with all-MiniLM, 59× with mxbai.
 
-Full numbers in [`talk/objectbox-phase0.md`](talk/objectbox-phase0.md),
-including the two benchmark mistakes that produced wrong answers first. Those
-recall figures can no longer be re-run: recall means "how much of the exact
+Those recall figures can no longer be re-run: recall means "how much of the exact
 answer did the approximation find", and there is no longer an exact index to
 ask. `obx_bench.dart` now measures build time, query latency, disk size, and
 hit@k — the last of which is scored against the document known to contain the
 answer, so it needs no second index.
+
+**Spreadsheet rows get their own index.** Rows from one CSV read almost alike,
+and in a graph shared with the documents that cluster traps the search. Built
+with `sales_q1_2026.csv` ahead of `staff_handbook.md` (alphabetical, the order
+`findSupportedFiles` returns), "How much annual leave?" got only sales rows back
+in 4 of 5 builds, even at k=40, though the handbook scores 0.635 against the
+rows' best 0.307. Raising ObjectBox's `neighborsPerNode` to 64 and
+`indexingSearchCount` to 200 only cut that to 2 of 8. So `ObjectBoxStore` keeps
+two HNSW indexes, `documents/` and `tables/`, searches both and merges by score:
+8 of 8 builds then ranked the handbook first, on default settings. Measured
+2026-10-19. An earlier build hid this behind a full scan below 500 chunks,
+which doesn't scale and was removed.
 
 ### Two ObjectBox things worth knowing
 
