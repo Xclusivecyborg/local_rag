@@ -61,7 +61,7 @@ for anything company-specific, and name the file you used.''';
     bool guarded = true,
   }) {
     final start = guarded ? base : tutorial;
-    if (computed) return '$start$computedRules';
+    if (computed) return '$start\n\n$computedRules';
     if (!grounded) return start;
     return strictGrounding
         ? '$start$groundedRules\n$aggregationRule'

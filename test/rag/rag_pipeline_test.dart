@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:local_rag/rag/rag_pipeline.dart';
+import 'package:local_rag/rag/rag_prompts.dart';
 import 'package:local_rag/rag/rag_recipe.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 import 'package:rag_blocks/rag_blocks.dart';
@@ -208,6 +209,15 @@ void main() {
         reason: recipe.name,
       );
     }
+  });
+
+  test('the computed rules start on their own line', () {
+    final prompt = RagPrompts.system(
+      grounded: false,
+      strictGrounding: true,
+      computed: true,
+    );
+    expect(prompt, contains('guessing.\n\nA COMPUTED RESULT'));
   });
 
   test('each recipe has its own index folder', () {
