@@ -49,6 +49,17 @@ for anything company-specific, and name the file you used.''';
   many records, do NOT estimate from the excerpts. Say they are a partial
   sample and that the true total cannot be computed from them.''';
 
+  /// Added under strict grounding whenever nothing was computed, so a
+  /// question missing a detail gets a question back instead of a refusal.
+  static const String clarifyRule = '''
+- If a question about the company's numbers leaves out something the answer
+  depends on, do not answer or refuse. Ask for the missing detail in one short
+  question, and offer the likely options if the excerpts show them. For example:
+  a month or quarter with no year ("Q1": which year?), an unclear measure ("how
+  much was made": revenue in naira, or units sold?), a partial or unclear name
+  ("Ikeja": which location?), or a relative date ("last month": which month and
+  year?).''';
+
   /// The system prompt changes shape depending on whether context was
   /// retrieved. With no excerpts it is simply a normal assistant.
   ///
@@ -62,9 +73,9 @@ for anything company-specific, and name the file you used.''';
   }) {
     final start = guarded ? base : tutorial;
     if (computed) return '$start\n\n$computedRules';
-    if (!grounded) return start;
+    if (!grounded) return strictGrounding ? '$start\n$clarifyRule' : start;
     return strictGrounding
-        ? '$start$groundedRules\n$aggregationRule'
+        ? '$start$groundedRules\n$clarifyRule\n$aggregationRule'
         : '$start$groundedRules';
   }
 

@@ -211,6 +211,29 @@ void main() {
     }
   });
 
+  test('optimized asks for missing details unless a figure was computed', () {
+    const rule = 'Ask for the missing detail';
+    bool asks({required bool grounded, bool computed = false}) =>
+        RagPrompts.system(
+          grounded: grounded,
+          strictGrounding: true,
+          computed: computed,
+        ).contains(rule);
+
+    expect(asks(grounded: true), isTrue);
+    expect(asks(grounded: false), isTrue);
+    expect(asks(grounded: false, computed: true), isFalse);
+    expect(
+      RagPrompts.system(
+        grounded: true,
+        strictGrounding: false,
+        guarded: false,
+      ).contains(rule),
+      isFalse,
+      reason: 'naive',
+    );
+  });
+
   test('the computed rules start on their own line', () {
     final prompt = RagPrompts.system(
       grounded: false,
