@@ -1,0 +1,916 @@
+{
+  "measuredOn": "2026-10-19",
+  "embeddingModel": "locusai/all-minilm-l6-v2:latest",
+  "chatModel": "gpt-oss:latest",
+  "corpus": "sample_kb",
+  "results": [
+    {
+      "recipe": "naive",
+      "optimizations": {
+        "Small chunks": false,
+        "CSV rows as prose": false,
+        "Query condensing": false,
+        "Per-file cap": false,
+        "Relevance Filtering": false,
+        "Exact Table Calculations": false,
+        "Strict Data Grounding": false,
+        "Never-invent prompt": false
+      },
+      "chunks": 23,
+      "summary": {
+        "lookupHit": 22,
+        "lookupHitAt1": 19,
+        "lookupTotal": 23,
+        "smallTalkClean": 0,
+        "smallTalkTotal": 12,
+        "arithmeticCorrect": 0,
+        "arithmeticTotal": 6,
+        "medianPrepareMs": 24
+      },
+      "lookups": [
+        {
+          "question": "How many days do I have to return unworn shoes?",
+          "expected": "returns_and_warranty.md",
+          "seen": [
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "suppliers.md",
+            "company_overview.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "What is the warranty on the Heritage line?",
+          "expected": "returns_and_warranty.md",
+          "seen": [
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "suppliers.md",
+            "staff_handbook.md",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Can I get a refund on something I bought in a sale?",
+          "expected": "returns_and_warranty.md",
+          "seen": [
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "staff_handbook.md",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "How many people work at the company?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "staff_handbook.md",
+            "staff_handbook.md",
+            "company_overview.md",
+            "company_overview.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Where is the Abuja branch located?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "When was the Port Harcourt location opened?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "company_overview.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Who makes our Heritage leather shoes?",
+          "expected": "suppliers.md",
+          "seen": [
+            "suppliers.md",
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "suppliers.md",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "What are the payment terms with the Italian supplier?",
+          "expected": "suppliers.md",
+          "seen": [
+            "suppliers.md",
+            "suppliers.md",
+            "returns_and_warranty.md",
+            "suppliers.md",
+            "returns_and_warranty.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Which supplier has the lowest defect rate?",
+          "expected": "suppliers.md",
+          "seen": [
+            "suppliers.md",
+            "suppliers.md",
+            "suppliers.md",
+            "returns_and_warranty.md",
+            "returns_and_warranty.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "How much annual leave do full-time staff get?",
+          "expected": "staff_handbook.md",
+          "seen": [
+            "staff_handbook.md",
+            "staff_handbook.md",
+            "company_overview.md",
+            "company_overview.md",
+            "company_overview.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "What discount do employees get on Heritage shoes?",
+          "expected": "staff_handbook.md",
+          "seen": [
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "suppliers.md",
+            "staff_handbook.md",
+            "company_overview.md"
+          ],
+          "hit": true,
+          "hitAt1": false,
+          "searchedFor": null
+        },
+        {
+          "question": "What commission do staff earn on Heritage sales?",
+          "expected": "staff_handbook.md",
+          "seen": [
+            "staff_handbook.md",
+            "suppliers.md",
+            "staff_handbook.md",
+            "company_overview.md",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Who is Tunde?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "suppliers.md",
+            "company_overview.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Who is Adaeze?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "company_overview.md",
+            "suppliers.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Who is the Operations Director?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "suppliers.md",
+            "staff_handbook.md",
+            "company_overview.md",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Who are the founders?",
+          "expected": "company_overview.md",
+          "seen": [
+            "suppliers.md",
+            "company_overview.md",
+            "company_overview.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv"
+          ],
+          "hit": true,
+          "hitAt1": false,
+          "searchedFor": null
+        },
+        {
+          "question": "What is the RC number?",
+          "expected": "company_overview.md",
+          "seen": [
+            "suppliers.md",
+            "company_overview.md",
+            "company_overview.md",
+            "company_overview.md",
+            "staff_handbook.md"
+          ],
+          "hit": true,
+          "hitAt1": false,
+          "searchedFor": null
+        },
+        {
+          "question": "Where is the registered office?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "company_overview.md",
+            "company_overview.md",
+            "staff_handbook.md",
+            "returns_and_warranty.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "How much annual leave?",
+          "expected": "staff_handbook.md",
+          "seen": [
+            "staff_handbook.md",
+            "staff_handbook.md",
+            "company_overview.md",
+            "company_overview.md",
+            "returns_and_warranty.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Which supplier is in Aba?",
+          "expected": "suppliers.md",
+          "seen": [
+            "suppliers.md",
+            "suppliers.md",
+            "suppliers.md",
+            "company_overview.md",
+            "company_overview.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "How much will I get as discount if I purchase shoes worth 100,000 naira as an employee of stridewell?",
+          "expected": "staff_handbook.md",
+          "seen": [
+            "company_overview.md",
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "suppliers.md"
+          ],
+          "hit": false,
+          "hitAt1": false,
+          "searchedFor": null
+        },
+        {
+          "question": "If I bought a pair of Heritage shoes last month and they do not fit, can I still bring them back?",
+          "expected": "returns_and_warranty.md",
+          "seen": [
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "suppliers.md",
+            "returns_and_warranty.md",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "I am thinking of applying — how much time off would I actually get in my first year?",
+          "expected": "staff_handbook.md",
+          "seen": [
+            "staff_handbook.md",
+            "staff_handbook.md",
+            "returns_and_warranty.md",
+            "company_overview.md",
+            "returns_and_warranty.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        }
+      ],
+      "smallTalk": [
+        {
+          "question": "Hello",
+          "clean": false,
+          "topScore": 0.19202888011932373
+        },
+        {
+          "question": "hi there",
+          "clean": false,
+          "topScore": 0.22296077013015747
+        },
+        {
+          "question": "thanks!",
+          "clean": false,
+          "topScore": 0.1869063377380371
+        },
+        {
+          "question": "how are you doing today?",
+          "clean": false,
+          "topScore": 0.17008137702941895
+        },
+        {
+          "question": "What is the capital of France?",
+          "clean": false,
+          "topScore": 0.14847004413604736
+        },
+        {
+          "question": "Write me a haiku about rain",
+          "clean": false,
+          "topScore": 0.26117265224456787
+        },
+        {
+          "question": "who won the world cup in 2018",
+          "clean": false,
+          "topScore": 0.08138382434844971
+        },
+        {
+          "question": "explain recursion to me",
+          "clean": false,
+          "topScore": 0.14103108644485474
+        },
+        {
+          "question": "good morning",
+          "clean": false,
+          "topScore": 0.14807915687561035
+        },
+        {
+          "question": "ok",
+          "clean": false,
+          "topScore": 0.19637340307235718
+        },
+        {
+          "question": "Who is Cristiano Ronaldo?",
+          "clean": false,
+          "topScore": 0.100730299949646
+        },
+        {
+          "question": "Who is Barack Obama?",
+          "clean": false,
+          "topScore": 0.10915040969848633
+        }
+      ],
+      "arithmetic": [
+        {
+          "question": "How much was Stridewell's revenue in ngn in january 2026?",
+          "truth": 71882000,
+          "correct": false,
+          "computed": false,
+          "answer": "I’m sorry, but none of the excerpts you supplied contain a revenue figure for Stridewell Footwear in January 2026. The documents cover company structure, headcount, locations, supplier terms and return policy, but they do not provide monthly or quarterly sales data. If you have another source that lists the January 2026 revenue, I’d be happy to help interpret it."
+        },
+        {
+          "question": "What was our total revenue in Q1 2026?",
+          "truth": 204740500,
+          "correct": false,
+          "computed": false,
+          "answer": "I’m sorry, but I don’t have any information on the company’s revenue figures for Q1 2026 in the excerpts provided."
+        },
+        {
+          "question": "How many units were sold in February 2026?",
+          "truth": 1374,
+          "correct": false,
+          "computed": false,
+          "answer": "I’m sorry, but the excerpts you shared don’t contain any sales figures for February 2026, so I can’t determine how many units were sold that month."
+        },
+        {
+          "question": "What was the total revenue for the Heritage line in Q1 2026?",
+          "truth": 25173500,
+          "correct": false,
+          "computed": false,
+          "answer": "I’m sorry, but none of the excerpts you provided contain any figures or statements about the Heritage line’s sales volume or revenue for Q1 2026. The documents describe pricing ranges, supplier details, and return policies, but they do not report actual sales numbers or revenue totals. Therefore, I can’t provide a total revenue figure from the information available."
+        },
+        {
+          "question": "How many units were returned in March 2026?",
+          "truth": 35,
+          "correct": false,
+          "computed": false,
+          "answer": "I’m sorry, but the excerpts you provided don’t include any specific figures for how many units were returned in March 2026. None of the policy or operational documents contain a monthly return count, so I can’t give an exact number based on the information available."
+        },
+        {
+          "question": "What was the total revenue at Ikeja City Mall in February 2026?",
+          "truth": 15787500,
+          "correct": false,
+          "computed": false,
+          "answer": "I’m sorry, but none of the excerpts you supplied contain any sales records for February 2026 at Ikeja City Mall.  \nThe data that is available in **sales_q1_2026.csv** (chunks 0 and 10) only covers:\n\n* Week‑starting dates in early January 2026 (e.g., 2026‑01‑05, 2026‑01‑12) – see chunk 5.  \n* A single date in late March 2026 (2026‑03‑23) – see chunk 4.\n\nBecause February is not represented in the provided data, I can’t calculate or report the total revenue for that month and location. If you have additional sales records for February 2026, please share them so I can compute the figure."
+        }
+      ]
+    },
+    {
+      "recipe": "optimized",
+      "optimizations": {
+        "Small chunks": true,
+        "CSV rows as prose": true,
+        "Query condensing": true,
+        "Per-file cap": true,
+        "Relevance Filtering": true,
+        "Exact Table Calculations": true,
+        "Strict Data Grounding": true,
+        "Never-invent prompt": true
+      },
+      "chunks": 146,
+      "summary": {
+        "lookupHit": 23,
+        "lookupHitAt1": 20,
+        "lookupTotal": 23,
+        "smallTalkClean": 11,
+        "smallTalkTotal": 12,
+        "arithmeticCorrect": 6,
+        "arithmeticTotal": 6,
+        "medianPrepareMs": 38
+      },
+      "lookups": [
+        {
+          "question": "How many days do I have to return unworn shoes?",
+          "expected": "returns_and_warranty.md",
+          "seen": [
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "suppliers.md",
+            "company_overview.md",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": "unworn shoes return period"
+        },
+        {
+          "question": "What is the warranty on the Heritage line?",
+          "expected": "returns_and_warranty.md",
+          "seen": [
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "staff_handbook.md",
+            "staff_handbook.md",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": "Heritage line warranty"
+        },
+        {
+          "question": "Can I get a refund on something I bought in a sale?",
+          "expected": "returns_and_warranty.md",
+          "seen": [
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "staff_handbook.md",
+            "staff_handbook.md",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": "refund policy for sale items"
+        },
+        {
+          "question": "How many people work at the company?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "staff_handbook.md",
+            "company_overview.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Where is the Abuja branch located?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "sales_q1_2026.csv",
+            "company_overview.md",
+            "sales_q1_2026.csv",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "When was the Port Harcourt location opened?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "company_overview.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Who makes our Heritage leather shoes?",
+          "expected": "suppliers.md",
+          "seen": [
+            "suppliers.md",
+            "suppliers.md",
+            "company_overview.md",
+            "returns_and_warranty.md",
+            "returns_and_warranty.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "What are the payment terms with the Italian supplier?",
+          "expected": "suppliers.md",
+          "seen": [
+            "suppliers.md",
+            "suppliers.md",
+            "returns_and_warranty.md",
+            "company_overview.md",
+            "returns_and_warranty.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": "Italian supplier payment terms"
+        },
+        {
+          "question": "Which supplier has the lowest defect rate?",
+          "expected": "suppliers.md",
+          "seen": [
+            "suppliers.md",
+            "suppliers.md",
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "company_overview.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "How much annual leave do full-time staff get?",
+          "expected": "staff_handbook.md",
+          "seen": [
+            "staff_handbook.md",
+            "staff_handbook.md",
+            "company_overview.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": "full time staff annual leave entitlement"
+        },
+        {
+          "question": "What discount do employees get on Heritage shoes?",
+          "expected": "staff_handbook.md",
+          "seen": [
+            "returns_and_warranty.md",
+            "staff_handbook.md",
+            "suppliers.md",
+            "returns_and_warranty.md",
+            "staff_handbook.md"
+          ],
+          "hit": true,
+          "hitAt1": false,
+          "searchedFor": "Heritage shoes employee discount"
+        },
+        {
+          "question": "What commission do staff earn on Heritage sales?",
+          "expected": "staff_handbook.md",
+          "seen": [
+            "staff_handbook.md",
+            "staff_handbook.md",
+            "returns_and_warranty.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": "Heritage sales staff commission"
+        },
+        {
+          "question": "Who is Tunde?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "company_overview.md",
+            "suppliers.md",
+            "suppliers.md",
+            "sales_q1_2026.csv"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Who is Adaeze?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "company_overview.md",
+            "suppliers.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Who is the Operations Director?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "company_overview.md",
+            "suppliers.md",
+            "staff_handbook.md",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Who are the founders?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "suppliers.md",
+            "suppliers.md",
+            "company_overview.md",
+            "sales_q1_2026.csv"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "What is the RC number?",
+          "expected": "company_overview.md",
+          "seen": [
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv",
+            "suppliers.md",
+            "suppliers.md",
+            "company_overview.md"
+          ],
+          "hit": true,
+          "hitAt1": false,
+          "searchedFor": null
+        },
+        {
+          "question": "Where is the registered office?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "company_overview.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv",
+            "staff_handbook.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "How much annual leave?",
+          "expected": "staff_handbook.md",
+          "seen": [
+            "staff_handbook.md",
+            "staff_handbook.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv",
+            "company_overview.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Which supplier is in Aba?",
+          "expected": "suppliers.md",
+          "seen": [
+            "suppliers.md",
+            "suppliers.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv",
+            "company_overview.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "How much will I get as discount if I purchase shoes worth 100,000 naira as an employee of stridewell?",
+          "expected": "staff_handbook.md",
+          "seen": [
+            "company_overview.md",
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "company_overview.md",
+            "staff_handbook.md"
+          ],
+          "hit": true,
+          "hitAt1": false,
+          "searchedFor": "Stridewell employee shoe discount policy"
+        },
+        {
+          "question": "If I bought a pair of Heritage shoes last month and they do not fit, can I still bring them back?",
+          "expected": "returns_and_warranty.md",
+          "seen": [
+            "returns_and_warranty.md",
+            "returns_and_warranty.md",
+            "suppliers.md",
+            "suppliers.md",
+            "company_overview.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": "Heritage shoes return policy fit issue"
+        },
+        {
+          "question": "I am thinking of applying — how much time off would I actually get in my first year?",
+          "expected": "staff_handbook.md",
+          "seen": [
+            "staff_handbook.md",
+            "staff_handbook.md",
+            "company_overview.md",
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": "new employee first year leave entitlement"
+        }
+      ],
+      "smallTalk": [
+        {
+          "question": "Hello",
+          "clean": true,
+          "topScore": 0.18626391887664795
+        },
+        {
+          "question": "hi there",
+          "clean": true,
+          "topScore": 0.190204918384552
+        },
+        {
+          "question": "thanks!",
+          "clean": true,
+          "topScore": 0.19153988361358643
+        },
+        {
+          "question": "how are you doing today?",
+          "clean": false,
+          "topScore": 0.2559584379196167
+        },
+        {
+          "question": "What is the capital of France?",
+          "clean": true,
+          "topScore": 0.13335132598876953
+        },
+        {
+          "question": "Write me a haiku about rain",
+          "clean": true,
+          "topScore": 0.12248373031616211
+        },
+        {
+          "question": "who won the world cup in 2018",
+          "clean": true,
+          "topScore": 0.11656862497329712
+        },
+        {
+          "question": "explain recursion to me",
+          "clean": true,
+          "topScore": 0.14103108644485474
+        },
+        {
+          "question": "good morning",
+          "clean": true,
+          "topScore": 0.19508516788482666
+        },
+        {
+          "question": "ok",
+          "clean": true,
+          "topScore": 0.21529853343963623
+        },
+        {
+          "question": "Who is Cristiano Ronaldo?",
+          "clean": true,
+          "topScore": 0.15029627084732056
+        },
+        {
+          "question": "Who is Barack Obama?",
+          "clean": true,
+          "topScore": 0.1572684645652771
+        }
+      ],
+      "arithmetic": [
+        {
+          "question": "How much was Stridewell's revenue in ngn in january 2026?",
+          "truth": 71882000,
+          "correct": true,
+          "computed": true,
+          "answer": "Stridewell’s revenue in NGN for **January 2026** was **71,882,000**.\n\nThis figure comes from a calculation performed on the full `sales_q1_2026.csv` dataset: it aggregates the `revenue_ngn` values for all rows that fall within January 2026. The computation used **80 matching rows out of the total 240 rows** in that file."
+        },
+        {
+          "question": "What was our total revenue in Q1 2026?",
+          "truth": 204740500,
+          "correct": true,
+          "computed": true,
+          "answer": "**Total revenue for Q1 2026:** ₦204,740,500  \n- **Period covered:** First quarter of 2026 (Q1 2026)  \n- **Data source & filter:** Calculated over all 240 matching rows in `sales_q1_2026.csv` (the full dataset)."
+        },
+        {
+          "question": "How many units were sold in February 2026?",
+          "truth": 1374,
+          "correct": true,
+          "computed": true,
+          "answer": "**Total units_sold in February 2026:** **1,374**\n\n- Computed over **80 matching row(s)** out of 240 in `sales_q1_2026.csv`."
+        },
+        {
+          "question": "What was the total revenue for the Heritage line in Q1 2026?",
+          "truth": 25173500,
+          "correct": true,
+          "computed": true,
+          "answer": "The total revenue for the Heritage line in Q1 2026 was **₦25,173,500**.  \nThis figure is based on 60 matching rows out of 240 in *sales_q1_2026.csv* and covers the entire first quarter of 2026."
+        },
+        {
+          "question": "How many units were returned in March 2026?",
+          "truth": 35,
+          "correct": true,
+          "computed": true,
+          "answer": "The total number of units returned in March 2026 is **35**.\n\nThis figure was computed over **80 matching rows** out of the 240 rows in `sales_q1_2026.csv`."
+        },
+        {
+          "question": "What was the total revenue at Ikeja City Mall in February 2026?",
+          "truth": 15787500,
+          "correct": true,
+          "computed": true,
+          "answer": "The total revenue for Ikeja City Mall in February 2026 was **NGN 15,787,500**.  \nThis figure is based on **16 matching rows** (out of 240) from the `sales_q1_2026.csv` dataset and covers all sales recorded at that location during the month of February 2026."
+        }
+      ]
+    }
+  ]
+}
