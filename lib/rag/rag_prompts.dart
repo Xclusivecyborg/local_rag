@@ -47,7 +47,11 @@ for anything company-specific, and name the file you used.''';
   static const String aggregationRule = '''
 - If a question requires adding up, counting, or averaging values spread across
   many records, do NOT estimate from the excerpts. Say they are a partial
-  sample and that the true total cannot be computed from them.''';
+  sample and that the true total cannot be computed from them. Then suggest a
+  way to ask that can be computed: one measure, one period with its year, and
+  at most one store or product line, such as "total revenue in Q1 2026". If the
+  question excludes something or compares periods, suggest asking for each part
+  separately, e.g. the total and the Heritage figure, then subtract.''';
 
   /// Added under strict grounding whenever nothing was computed, so a
   /// question missing a detail gets a question back instead of a refusal.
