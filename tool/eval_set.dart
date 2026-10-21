@@ -54,6 +54,35 @@ const Map<String, String> shortFormEval = {
   'Which supplier is in Aba?': 'suppliers.md',
 };
 
+/// Long questions phrased the way a user actually typed them.
+///
+/// These exposed the problem query condensing exists to fix: an embedding
+/// represents the whole sentence, so the extra clauses drag it off-topic.
+const Map<String, String> longFormEval = {
+  'How much will I get as discount if I purchase shoes worth 100,000 naira '
+          'as an employee of stridewell?':
+      'staff_handbook.md',
+  'If I bought a pair of Heritage shoes last month and they do not fit, '
+          'can I still bring them back?':
+      'returns_and_warranty.md',
+  'I am thinking of applying — how much time off would I actually get '
+          'in my first year?':
+      'staff_handbook.md',
+};
+
+/// Aggregation questions over sales_q1_2026.csv -> the exact answer.
+///
+/// Ground truth computed with awk straight from the CSV, not by the app's
+/// planner, so a planner bug cannot also hide in the expected value.
+const Map<String, num> arithmeticEval = {
+  "How much was Stridewell's revenue in ngn in january 2026?": 71882000,
+  'What was our total revenue in Q1 2026?': 204740500,
+  'How many units were sold in February 2026?': 1374,
+  'What was the total revenue for the Heritage line in Q1 2026?': 25173500,
+  'How many units were returned in March 2026?': 35,
+  'What was the total revenue at Ikeja City Mall in February 2026?': 15787500,
+};
+
 /// The twelve short questions the chunk-size comparison was measured with.
 ///
 /// Four wider than [shortFormEval] on purpose. The "10 of 12 short questions

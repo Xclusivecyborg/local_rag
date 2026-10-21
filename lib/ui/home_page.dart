@@ -4,19 +4,21 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_rag/question_answering/rag_controller.dart';
+import 'package:local_rag/rag/rag_recipe.dart';
 import 'package:local_rag/ui/composer.dart';
 import 'package:local_rag/ui/sidebar/sidebar.dart';
 import 'package:local_rag/ui/transcript/transcript.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, required this.recipe});
+  final RagRecipe recipe;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  final RagController _controller = RagController();
+  late final RagController _controller = RagController(recipe: widget.recipe);
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
 
@@ -75,12 +77,15 @@ class _HomePageState extends State<HomePage> {
       body: Row(
         children: [
           Sidebar(controller: _controller, onPick: _pickKnowledgeBase),
-          const VerticalDivider(width: 1),
           Expanded(
             child: Column(
               children: [
                 Expanded(
-                  child: Transcript(controller: _controller, scroll: _scroll),
+                  child: Transcript(
+                    controller: _controller,
+                    scroll: _scroll,
+                    onAsk: _controller.ask,
+                  ),
                 ),
                 Composer(controller: _controller, input: _input, onSend: _send),
               ],

@@ -1,5 +1,4 @@
-import 'package:local_rag/table_arithmetic/csv_table.dart';
-import 'package:local_rag/vector_search/stored_chunk.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 
 /// One message in the conversation, plus how an assistant answer was produced.
 class Turn {

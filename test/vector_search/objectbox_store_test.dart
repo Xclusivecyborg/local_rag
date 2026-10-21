@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:local_rag/document_indexing/chunker.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 
 /// A deterministic unit vector pointing mostly along [axis].
@@ -55,6 +55,30 @@ void main() {
     open.add(s);
     return s;
   }
+
+  group('a crowded file', () {
+    test('does not hide the best match, and stays capped', () async {
+      final s = await newStore();
+      // One crowded file (axis 0, many near-copies) and one small file whose
+      // single chunk is the true best match for the query.
+      final rows = [
+        for (var i = 0; i < 40; i++) ('row $i', 'sales.csv', i),
+        ('annual leave', 'handbook.md', 0),
+      ];
+      s.addAll(chunks(rows), [
+        for (var i = 0; i < 40; i++) vec(384, 0, noise: 0.3 + i * 0.001),
+        vec(384, 1),
+      ]);
+      final query = vec(384, 1, noise: 0.05);
+
+      final hits = s.search(query, k: 5, maxPerSource: 2);
+      expect(hits.first.chunk.source, 'handbook.md');
+      expect(hits, hasLength(3), reason: 'handbook once, sales capped at 2');
+      for (var i = 1; i < hits.length; i++) {
+        expect(hits[i - 1].score, greaterThanOrEqualTo(hits[i].score));
+      }
+    });
+  });
 
   group('which dimensions are supported', () {
     test('every width up to the largest declared index', () {

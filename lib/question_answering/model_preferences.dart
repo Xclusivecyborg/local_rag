@@ -1,4 +1,4 @@
-import 'package:local_rag/ollama/ollama_client.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 
 /// Which installed models the app selects on startup, best first.
 ///

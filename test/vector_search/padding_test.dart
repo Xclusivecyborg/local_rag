@@ -9,7 +9,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:local_rag/vector_search/stored_chunk.dart';
+import 'package:local_rag/vector_search/vectors.dart';
 
 double cosine(List<double> a, List<double> b) {
   var dot = 0.0, na = 0.0, nb = 0.0;

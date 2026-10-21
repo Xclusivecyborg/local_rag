@@ -1,30 +1,46 @@
 import 'dart:io';
 
-import 'package:local_rag/document_indexing/chunker.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 
 import 'objectbox.g.dart';
-import 'stored_chunk.dart';
 import 'vector_entities.dart';
+import 'vectors.dart';
 
-/// The vector index: an ObjectBox HNSW graph stored on disk.
+/// The vector index: ObjectBox HNSW graphs stored on disk.
+///
+/// Spreadsheet rows and documents live in two separate indexes, each with its
+/// own HNSW graph, and a search asks both. Rows from one CSV read almost
+/// alike, and in a shared graph that cluster traps the search: built with
+/// sales_q1_2026.csv ahead of staff_handbook.md, "How much annual leave?" got
+/// only sales rows back in 4 of 5 builds, even at k=40, though the handbook
+/// scores 0.635 against the rows' best 0.307. Kept apart, neither can hide
+/// the other, at any size.
 ///
 /// ObjectBox fixes the vector width at code-generation time, so only the
 /// widths in [supportedDimensions] can be stored. Narrower vectors are
 /// zero-padded up to the next one, which leaves cosine similarity unchanged.
-class ObjectBoxStore {
-  ObjectBoxStore._(this._store, this.embeddingModel, this.dimension, this._dir)
-    : storageDimension = Vectors.storageDimensionFor(dimension),
-      _entity = _EntityAccess.forWidth(
-        _store,
-        Vectors.storageDimensionFor(dimension),
-      );
+class ObjectBoxStore implements VectorStore {
+  ObjectBoxStore._(
+    this._documents,
+    this._tables,
+    this.embeddingModel,
+    this.dimension,
+    this._dir,
+  ) : storageDimension = Vectors.storageDimensionFor(dimension) {
+    _shelves = [
+      for (final store in [_documents, _tables])
+        _EntityAccess.forWidth(store, storageDimension),
+    ];
+  }
 
-  final Store _store;
+  final Store _documents; // prose, and the IndexMeta row
+  final Store _tables; // one chunk per spreadsheet row
   final Directory _dir;
-  final _EntityAccess _entity;
+  late final List<_EntityAccess> _shelves; // documents, then tables
 
   /// The model that produced these vectors. Vectors from different models
   /// cannot be compared, hence [isCompatibleWith].
+  @override
   final String embeddingModel;
   final int dimension;
 
@@ -35,29 +51,52 @@ class ObjectBoxStore {
   /// enough are left after the cap to fill `k`.
   static const int _overFetchFactor = 8;
 
+  /// Spreadsheet rows go to the tables index; everything else is a document.
+  static bool _isTableRow(Chunk chunk) =>
+      chunk.source.toLowerCase().endsWith('.csv');
+
+  static Directory _documentsIn(Directory dir) =>
+      Directory('${dir.path}/documents');
+  static Directory _tablesIn(Directory dir) => Directory('${dir.path}/tables');
+
   /// Whether this build can index vectors of this width at all.
   static bool supports(int dimension) =>
       supportedDimensions.any((width) => dimension > 0 && dimension <= width);
 
-  /// Where the database lives inside the app's support directory.
-  static Directory directoryIn(Directory supportDir) =>
-      Directory('${supportDir.path}/objectbox');
+  /// Where the database lives inside the app's support directory. Each RAG
+  /// recipe passes its own [folder], since each chunks differently.
+  static Directory directoryIn(
+    Directory supportDir, {
+    String folder = 'objectbox',
+  }) => Directory('${supportDir.path}/$folder');
 
   /// Opens the index in [dir], or returns null if there is no usable one
   /// (missing, corrupt, or from an older build). Either way: re-index.
   static Future<ObjectBoxStore?> open(Directory dir) async {
-    if (!await dir.exists()) return null;
-    Store? store;
+    if (!await _documentsIn(dir).exists() || !await _tablesIn(dir).exists()) {
+      return null; // missing, or the single-index layout of an older build
+    }
+    Store? documents;
+    Store? tables;
     try {
-      store = await openStore(directory: dir.path);
-      final meta = store.box<IndexMeta>().getAll().firstOrNull;
+      documents = await openStore(directory: _documentsIn(dir).path);
+      tables = await openStore(directory: _tablesIn(dir).path);
+      final meta = documents.box<IndexMeta>().getAll().firstOrNull;
       if (meta == null || !supports(meta.dimension)) {
-        store.close();
+        documents.close();
+        tables.close();
         return null;
       }
-      return ObjectBoxStore._(store, meta.embeddingModel, meta.dimension, dir);
+      return ObjectBoxStore._(
+        documents,
+        tables,
+        meta.embeddingModel,
+        meta.dimension,
+        dir,
+      );
     } on Object {
-      store?.close();
+      documents?.close();
+      tables?.close();
       return null;
     }
   }
@@ -71,23 +110,30 @@ class ObjectBoxStore {
   }) async {
     Vectors.storageDimensionFor(dimension); // throws if too wide
     if (await dir.exists()) await dir.delete(recursive: true);
-    await dir.create(recursive: true);
-    final store = await openStore(directory: dir.path);
-    store.box<IndexMeta>().put(
+    await _documentsIn(dir).create(recursive: true);
+    await _tablesIn(dir).create(recursive: true);
+    final documents = await openStore(directory: _documentsIn(dir).path);
+    final tables = await openStore(directory: _tablesIn(dir).path);
+    documents.box<IndexMeta>().put(
       IndexMeta()
         ..embeddingModel = embeddingModel
         ..dimension = dimension,
     );
-    return ObjectBoxStore._(store, embeddingModel, dimension, dir);
+    return ObjectBoxStore._(documents, tables, embeddingModel, dimension, dir);
   }
 
-  int get size => _entity.count();
+  @override
+  int get size => _shelves.fold(0, (sum, shelf) => sum + shelf.count());
+  @override
   bool get isEmpty => size == 0;
-  Set<String> get sources => _entity.sources();
-  Map<String, int> get chunkCountsBySource => _entity.countsBySource();
+  Set<String> get sources => {for (final shelf in _shelves) ...shelf.sources()};
+  Map<String, int> get chunkCountsBySource => {
+    for (final shelf in _shelves) ...shelf.countsBySource(),
+  };
 
   bool isCompatibleWith(String model) => model == embeddingModel;
 
+  @override
   void addAll(List<Chunk> chunks, List<List<double>> embeddings) {
     if (chunks.length != embeddings.length) {
       throw ArgumentError(
@@ -95,10 +141,11 @@ class ObjectBoxStore {
         '${chunks.length} vs ${embeddings.length}',
       );
     }
-    final rows = <StoredChunk>[];
+    final documents = <StoredChunk>[];
+    final tables = <StoredChunk>[];
     for (var i = 0; i < chunks.length; i++) {
       Vectors.checkDimension(embeddings[i].length, dimension, isQuery: false);
-      rows.add(
+      (_isTableRow(chunks[i]) ? tables : documents).add(
         StoredChunk(
           text: chunks[i].text,
           source: chunks[i].source,
@@ -112,11 +159,13 @@ class ObjectBoxStore {
         ),
       );
     }
-    _entity.putAll(rows);
+    _shelves[0].putAll(documents);
+    _shelves[1].putAll(tables);
   }
 
-  /// The [k] chunks closest to [queryEmbedding], best first, with at most
-  /// [maxPerSource] from any one file.
+  /// The [k] chunks closest to [queryEmbedding] across both indexes, best
+  /// first, with at most [maxPerSource] from any one file.
+  @override
   List<ScoredChunk> search(
     List<double> queryEmbedding, {
     int k = 5,
@@ -129,16 +178,19 @@ class ObjectBoxStore {
       storageDimension,
     );
     final candidates = maxPerSource == null ? k : k * _overFetchFactor;
-    return Vectors.capPerSource(
-      _entity.nearest(query, candidates, dimension),
-      k,
-      maxPerSource,
-    );
+    final merged = [
+      for (final shelf in _shelves)
+        ...shelf.nearest(query, candidates, dimension),
+    ]..sort((a, b) => b.score.compareTo(a.score));
+    return capPerSource(merged, k, maxPerSource);
   }
 
   /// Releases the database. Without this the folder stays locked and the
   /// next open of it fails.
-  void close() => _store.close();
+  void close() {
+    _documents.close();
+    _tables.close();
+  }
 
   int get diskBytes {
     if (!_dir.existsSync()) return 0;
@@ -230,21 +282,23 @@ class _EntityAccess {
       return [
         for (final r in found)
           ScoredChunk(
-            StoredChunk(
-              text: r.object.text,
-              source: r.object.source,
-              index: r.object.chunkIndex,
-              start: r.object.chunkStart,
-              end: r.object.chunkEnd,
-              embedding: (r.object.vector ?? const <double>[])
-                  .take(modelDimension)
-                  .toList(growable: false),
-            ),
+            _toChunk(r.object, modelDimension),
             // ObjectBox reports cosine distance (0 to 2); convert to similarity.
             1.0 - r.score,
           ),
       ];
     },
+  );
+
+  static StoredChunk _toChunk(VecRow row, int modelDimension) => StoredChunk(
+    text: row.text,
+    source: row.source,
+    index: row.chunkIndex,
+    start: row.chunkStart,
+    end: row.chunkEnd,
+    embedding: (row.vector ?? const <double>[])
+        .take(modelDimension)
+        .toList(growable: false),
   );
 
   static List<String> _sourceValues<T>(

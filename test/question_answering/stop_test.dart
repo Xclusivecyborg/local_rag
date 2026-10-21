@@ -5,9 +5,9 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:local_rag/document_indexing/chunker.dart';
-import 'package:local_rag/ollama/ollama_client.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 import 'package:local_rag/question_answering/rag_controller.dart';
+import 'package:local_rag/rag/rag_recipe.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 
 const embedModel = 'test-embed';
@@ -62,11 +62,17 @@ void main() {
     );
     index.addAll([const Chunk(text: 'x', source: 'a.md', index: 0)], [vector]);
     fake = FakeOllama();
-    controller = RagController(client: fake.client)
-      ..chatModel = 'test-chat'
-      ..embedModel = embedModel
-      ..index = index
-      ..condenseQueries = false; // so /api/chat is only the answer
+    controller =
+        RagController(
+            client: fake.client,
+            // No condensing, so /api/chat is only the answer.
+            recipe: const RagRecipe(name: 'test', condenseQueries: false),
+          )
+          ..ollamaVersion =
+              '0.32.5' // as if connect() had run
+          ..chatModel = 'test-chat'
+          ..embedModel = embedModel
+          ..index = index;
   });
 
   tearDown(() {
@@ -100,5 +106,18 @@ void main() {
     expect(fake.chatCalls, 1, reason: 'only the second question is answered');
     expect(controller.turns.map((t) => t.role), ['user', 'user', 'assistant']);
     expect(controller.isStreaming, isFalse);
+  });
+
+  test('nothing is sent while Ollama is stopped', () async {
+    // What stopOllama() leaves behind: no version, but the model still
+    // selected for the next start.
+    controller.ollamaVersion = null;
+    expect(controller.canChat, isFalse);
+
+    await controller.ask('Hello there');
+
+    expect(fake.embedCalls + fake.chatCalls, 0);
+    expect(controller.turns, isEmpty);
+    expect(controller.error, contains('Ollama is stopped'));
   });
 }

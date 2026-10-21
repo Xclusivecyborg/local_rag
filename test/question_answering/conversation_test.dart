@@ -10,9 +10,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:local_rag/document_indexing/chunker.dart';
-import 'package:local_rag/table_arithmetic/csv_table.dart';
-import 'package:local_rag/ollama/ollama_client.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 import 'package:local_rag/question_answering/rag_controller.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 
@@ -58,6 +56,7 @@ Future<RagController> buildController(OllamaClient ollama) async {
     ..addAll(chunks, vectors);
 
   return RagController(client: ollama)
+    ..ollamaVersion = await ollama.version() // as if connect() had run
     ..chatModel = chatModel
     ..embedModel = embedModel
     ..index = store
@@ -92,7 +91,7 @@ void main() {
     expect(reply.content.trim(), isNotEmpty);
     expect(reply.content.toLowerCase(), isNot(contains('21 days')),
         reason: 'should not leak document content into a greeting');
-    expect(reply.topScore, lessThan(c.retrievalThreshold));
+    expect(reply.topScore, lessThan(c.retrievalThreshold!));
   }, timeout: timeout);
 
   test('general knowledge question is answered without retrieval', () async {
@@ -115,7 +114,7 @@ void main() {
     final reply = c.turns.last;
     expect(reply.grounded, isTrue, reason: 'should have cleared the gate');
     expect(reply.sources, isNotEmpty);
-    expect(reply.topScore, greaterThanOrEqualTo(c.retrievalThreshold));
+    expect(reply.topScore, greaterThanOrEqualTo(c.retrievalThreshold!));
     expect(reply.content, contains('21'));
   }, timeout: timeout);
 
@@ -135,7 +134,9 @@ void main() {
 
   test('chat works with no index at all', () async {
     if (!up) return markTestSkipped('Ollama not running');
-    final c = RagController(client: ollama)..chatModel = chatModel;
+    final c = RagController(client: ollama)
+      ..ollamaVersion = await ollama.version()
+      ..chatModel = chatModel;
 
     expect(c.hasIndex, isFalse);
     expect(c.canChat, isTrue);

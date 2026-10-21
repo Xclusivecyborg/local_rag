@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:local_rag/question_answering/rag_controller.dart';
+import 'package:local_rag/ui/theme/app_theme.dart';
+import 'package:local_rag/ui/widgets/panel.dart';
 
 class ConnectionCard extends StatelessWidget {
   const ConnectionCard({super.key, required this.controller});
@@ -13,100 +15,72 @@ class ConnectionCard extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     if (c.isConnecting || c.isStopping) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
+      return Panel(
+        child: PanelHeader(
+          icon: Icons.hub_outlined,
+          color: scheme.primary,
+          title: c.isStopping ? 'Stopping Ollama' : 'Starting Ollama',
+          subtitle: c.statusMessage ?? 'Working…',
+          trailing: const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
         ),
-        child: Row(
+      );
+    }
+
+    if (c.isConnected) {
+      return Panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                c.statusMessage ?? 'Working…',
-                style: const TextStyle(fontSize: 12),
+            PanelHeader(
+              icon: Icons.hub_outlined,
+              color: AppColors.ok,
+              title: 'Ollama connected',
+              subtitle: '127.0.0.1:11434',
+              trailing: Tooltip(
+                message: c.ollamaPath ?? 'ollama binary not located',
+                child: Tag('v${c.ollamaVersion}'),
               ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const StatusDot(color: AppColors.ok),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Running on this machine',
+                    style: TextStyle(fontSize: 11.5, color: theme.hintColor),
+                  ),
+                ),
+                ConnectionButtons(controller: c),
+              ],
             ),
           ],
         ),
       );
     }
 
-    if (c.isConnected) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF4CAF50),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Tooltip(
-                message: c.ollamaPath ?? 'ollama binary not located',
-                child: Text(
-                  'Ollama ${c.ollamaVersion}',
-                  style: TextStyle(fontSize: 11.5, color: theme.hintColor),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ConnectionButtons(controller: c),
-        ],
-      );
-    }
-
     // A stop the user asked for is not a failure, so it does not get the red
     // treatment. Only an unexpected disconnection does.
     final deliberate = c.stoppedByUser;
-    final background =
-        deliberate ? scheme.surfaceContainerHighest : scheme.errorContainer;
-    final foreground =
-        deliberate ? scheme.onSurfaceVariant : scheme.onErrorContainer;
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(8),
-      ),
+    final accent = deliberate ? null : scheme.error;
+    return Panel(
+      accent: accent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: foreground.withValues(alpha: 0.5),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                deliberate ? 'Ollama stopped' : 'Ollama is not running',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: foreground,
-                ),
-              ),
-            ],
+          PanelHeader(
+            icon: deliberate
+                ? Icons.power_settings_new_rounded
+                : Icons.portable_wifi_off_rounded,
+            color: accent ?? theme.hintColor,
+            title: deliberate ? 'Ollama stopped' : 'Ollama is not running',
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           SelectableText(
             c.error ??
                 (deliberate
@@ -114,7 +88,7 @@ class ConnectionCard extends StatelessWidget {
                     : 'Could not reach Ollama on 127.0.0.1:11434.'),
             style: TextStyle(
               fontSize: 11.5,
-              color: foreground,
+              color: deliberate ? theme.hintColor : scheme.onSurface,
               height: 1.45,
             ),
           ),
@@ -132,7 +106,6 @@ class ConnectionCard extends StatelessWidget {
 /// nothing to connect to. When it is down, both appear: Connect to start it,
 /// and Stop greyed out, which says "there is nothing running" more directly
 /// than an absent button does.
-
 class ConnectionButtons extends StatelessWidget {
   const ConnectionButtons({super.key, required this.controller});
 
@@ -142,28 +115,25 @@ class ConnectionButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = controller;
     final busy = c.isConnecting || c.isStopping;
+    const size = Size(0, 30);
+    const padding = EdgeInsets.symmetric(horizontal: 11);
 
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         OutlinedButton.icon(
           onPressed: (c.isConnected && !busy) ? c.stopOllama : null,
-          icon: const Icon(Icons.stop_circle_outlined, size: 15),
-          label: const Text('Stop', style: TextStyle(fontSize: 12)),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 32),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-          ),
+          icon: const Icon(Icons.stop_rounded, size: 15),
+          label: const Text('Stop'),
+          style: OutlinedButton.styleFrom(minimumSize: size, padding: padding),
         ),
         if (!c.isConnected) ...[
           const SizedBox(width: 8),
           FilledButton.icon(
             onPressed: busy ? null : c.connect,
-            icon: const Icon(Icons.bolt, size: 15),
-            label: const Text('Connect', style: TextStyle(fontSize: 12)),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 32),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-            ),
+            icon: const Icon(Icons.bolt_rounded, size: 15),
+            label: const Text('Connect'),
+            style: FilledButton.styleFrom(minimumSize: size, padding: padding),
           ),
         ],
       ],

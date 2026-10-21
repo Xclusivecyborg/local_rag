@@ -2,36 +2,41 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:local_rag/document_indexing/ingest.dart';
 import 'package:local_rag/models/ingest_progress.dart';
 import 'package:local_rag/models/message_turn.dart';
-import 'package:local_rag/ollama/ollama_client.dart';
-import 'package:local_rag/ollama/ollama_launcher.dart';
-import 'package:local_rag/table_arithmetic/csv_table.dart';
-import 'package:local_rag/table_arithmetic/table_query_planner.dart';
+import 'package:local_rag/rag/rag_pipeline.dart';
+import 'package:local_rag/rag/rag_recipe.dart';
+import 'package:local_rag/rag/retrieval_settings.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
-import 'package:local_rag/vector_search/stored_chunk.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 
 import 'model_preferences.dart';
-import 'query_condenser.dart';
-import 'rag_prompts.dart';
-import 'retrieval_settings.dart';
 
 /// All state behind the UI: the Ollama connection, the selected models, the
 /// document index, and the conversation.
+///
+/// The RAG itself lives in [RagPipeline]; this class feeds it and streams
+/// what it produces into the UI.
 class RagController extends ChangeNotifier {
-  RagController({OllamaClient? client, OllamaLauncher? launcher})
-    : ollama = client ?? OllamaClient() {
+  RagController({
+    OllamaClient? client,
+    OllamaLauncher? launcher,
+    RagRecipe recipe = RagRecipe.optimized,
+  }) : ollama = client ?? OllamaClient(),
+       _recipe = recipe {
     _launcher = launcher ?? OllamaLauncher(ollama);
-    _ingestor = Ingestor(ollama);
-    _condenser = QueryCondenser(ollama);
+    _pipeline = RagPipeline(ollama, recipe: recipe);
   }
 
   final OllamaClient ollama;
+
+  /// Which optimizations run. Changed with [setRecipe]; each recipe has its
+  /// own index, so changing it swaps the index too.
+  RagRecipe get recipe => _recipe;
+  RagRecipe _recipe;
   late final OllamaLauncher _launcher;
-  late final Ingestor _ingestor;
-  late final QueryCondenser _condenser;
+  late RagPipeline _pipeline;
 
   // Connection
   String? ollamaVersion; // null when Ollama is not answering
@@ -55,8 +60,6 @@ class RagController extends ChangeNotifier {
   // Conversation
   final List<Turn> turns = [];
   bool isStreaming = false;
-  bool strictGrounding = true; // refuse totals the excerpts cannot support
-  bool condenseQueries = true; // rewrite long questions before searching
 
   /// Updated on every token without calling notifyListeners(), so only the
   /// in-progress bubble rebuilds while an answer streams in.
@@ -65,14 +68,18 @@ class RagController extends ChangeNotifier {
   StreamSubscription<ChatChunk>? _answerSubscription;
   int _currentTurn = 0; // stop() bumps this so an unfinished ask() gives up
 
-  /// How many earlier turns are sent with a question, so follow-ups make sense.
-  static const int maxHistoryTurns = 8;
-
   bool get isConnected => ollamaVersion != null;
-  bool get canChat => chatModel != null;
+
+  /// Whether a question can be sent now: Ollama is up and a chat model is
+  /// chosen. The model stays selected after Stop, so both are needed.
+  bool get canChat => isConnected && chatModel != null;
   bool get hasIndex => index != null && !index!.isEmpty;
   String? get ollamaPath => _launcher.resolvedPath;
-  double get retrievalThreshold => RetrievalSettings.thresholdFor(embedModel);
+
+  /// The relevance gate for the selected embedding model, or null when the
+  /// recipe has no gate.
+  double? get retrievalThreshold =>
+      recipe.relevanceGate ? RetrievalSettings.thresholdFor(embedModel) : null;
   List<OllamaModel> get chatModels => models.where((m) => m.canChat).toList();
   List<OllamaModel> get embedModels => models.where((m) => m.canEmbed).toList();
 
@@ -135,22 +142,7 @@ class RagController extends ChangeNotifier {
         ModelPreferences.embedding,
       );
 
-      final saved = await ObjectBoxStore.open(await _indexDirectory());
-      if (saved == null) return;
-      // Vectors from a different embedding model cannot be searched.
-      if (embedModel != null && saved.isCompatibleWith(embedModel!)) {
-        _replaceIndex(saved);
-        final file = await _tablesFile();
-        tables = await file.exists()
-            ? CsvTable.decodeAll(await file.readAsString())
-            : const [];
-      } else {
-        saved.close();
-        error =
-            'Existing index was built with "${saved.embeddingModel}" '
-            'but the selected embedding model is "$embedModel". Re-index '
-            'before querying.';
-      }
+      await _loadSavedIndex();
     } on OllamaException catch (e) {
       ollamaVersion = null; // Ollama quit after the version check
       error = e.message;
@@ -159,7 +151,57 @@ class RagController extends ChangeNotifier {
     }
   }
 
+  /// Opens the current recipe's saved index and tables, if it has any.
+  Future<void> _loadSavedIndex() async {
+    final saved = await ObjectBoxStore.open(await _indexDirectory());
+    if (saved == null) return;
+    // Vectors from a different embedding model cannot be searched.
+    if (embedModel != null && saved.isCompatibleWith(embedModel!)) {
+      _replaceIndex(saved);
+      final file = await _tablesFile();
+      tables = await file.exists()
+          ? CsvTable.decodeAll(await file.readAsString())
+          : const [];
+    } else {
+      saved.close();
+      error =
+          'Existing index was built with "${saved.embeddingModel}" '
+          'but the selected embedding model is "$embedModel". Re-index '
+          'before querying.';
+    }
+  }
+
   // ---- Settings --------------------------------------------------------
+
+  /// Whether [setRecipe] can run now. Not mid-answer or mid-index, since
+  /// both are using the current recipe's pipeline and index.
+  bool get canSwitchRecipe => !isStreaming && !isIndexing;
+
+  /// Switches between recipes while the app runs, e.g. naive to optimized.
+  ///
+  /// Each recipe chunks differently, so each has its own index: the current
+  /// one is closed and the new recipe's saved index is opened. The
+  /// conversation is kept, so the same question can be compared under both.
+  Future<void> setRecipe(RagRecipe next) async {
+    if (next.name == _recipe.name || !canSwitchRecipe) return;
+    _recipe = next;
+    _pipeline = RagPipeline(ollama, recipe: next);
+    _replaceIndex(null);
+    tables = const [];
+    error = null;
+    notifyListeners();
+    try {
+      await _loadSavedIndex();
+    } on Object catch (e) {
+      error = '$e';
+    }
+    if (index == null && error == null) {
+      error =
+          'No ${next.name} index yet. Choose the knowledge base folder to '
+          'build one; after that, switching back here is instant.';
+    }
+    notifyListeners();
+  }
 
   /// Shows an error raised outside the controller, e.g. by the folder picker.
   void reportError(String message) {
@@ -184,11 +226,6 @@ class RagController extends ChangeNotifier {
           'Embedding model changed to "$name". The previous index is no '
           'longer valid — pick your knowledge base again to re-index.';
     }
-    notifyListeners();
-  }
-
-  void setStrictGrounding(bool value) {
-    strictGrounding = value;
     notifyListeners();
   }
 
@@ -219,7 +256,7 @@ class RagController extends ChangeNotifier {
       }
       _replaceIndex(null); // ObjectBox cannot recreate a folder that is open
 
-      final result = await _ingestor.ingest(
+      final result = await _pipeline.ingest(
         files: files,
         embeddingModel: embed,
         onProgress: (progress) {
@@ -254,17 +291,24 @@ class RagController extends ChangeNotifier {
     old?.close();
   }
 
-  Future<Directory> _indexDirectory() async =>
-      ObjectBoxStore.directoryIn(await getApplicationSupportDirectory());
+  Future<Directory> _indexDirectory() async => ObjectBoxStore.directoryIn(
+    await getApplicationSupportDirectory(),
+    folder: recipe.indexFolder,
+  );
 
   /// Saved beside the index rather than in it, so older databases still load.
-  Future<File> _tablesFile() async =>
-      File('${(await getApplicationSupportDirectory()).path}/tables.json');
+  Future<File> _tablesFile() async => File(
+    '${(await getApplicationSupportDirectory()).path}/${recipe.tablesFile}',
+  );
 
   // ---- Answering -------------------------------------------------------
 
   Future<void> ask(String question) async {
     if (isStreaming) return;
+    if (!isConnected) {
+      reportError('Ollama is stopped. Press Connect to start it again.');
+      return;
+    }
     final chat = chatModel;
     if (chat == null) {
       reportError('No chat model selected.');
@@ -277,44 +321,25 @@ class RagController extends ChangeNotifier {
     error = null;
     notifyListeners();
 
-    // Arithmetic over a table is exact, so it takes priority over retrieval.
-    final computed = _computeFromTables(question);
-    final threshold = retrievalThreshold; // fixed now, so the UI shows this one
-    final search = computed == null
-        ? await _searchDocuments(question, chat)
-        : null;
+    final prompt = await _pipeline.prepare(
+      question: question,
+      chatModel: chat,
+      embeddingModel: embedModel,
+      index: hasIndex ? index : null,
+      tables: tables,
+      history: _previousTurns(RagPipeline.maxHistoryTurns).toList(),
+      thinkingModel: models.any((m) => m.name == chat && m.thinks),
+    );
     if (turn != _currentTurn) return; // stopped while searching
-    final topScore = search?.chunks.firstOrNull?.score;
-    final grounded = topScore != null && topScore >= threshold;
-    final sources = grounded ? search!.chunks : const <ScoredChunk>[];
-
-    final messages = [
-      ChatMessage(
-        'system',
-        RagPrompts.system(
-          grounded: grounded,
-          strictGrounding: strictGrounding,
-          computed: computed != null,
-        ),
-      ),
-      // Earlier turns are replayed without their excerpts, so old context
-      // does not keep steering new answers.
-      for (final turn in _previousTurns(maxHistoryTurns))
-        ChatMessage(turn.role, turn.content),
-      ChatMessage(
-        'user',
-        computed != null
-            ? RagPrompts.withComputed(question, computed)
-            : grounded
-            ? RagPrompts.withContext(question, sources)
-            : question,
-      ),
-    ];
+    if (prompt.retrievalError != null) {
+      debugPrint(
+        'Retrieval failed, answering without documents: '
+        '${prompt.retrievalError}',
+      );
+    }
 
     final answer = StringBuffer();
-    _answerSubscription = ollama.chat(model: chat, messages: messages).listen((
-      chunk,
-    ) {
+    _answerSubscription = _pipeline.generate(chat, prompt).listen((chunk) {
       if (chunk.thinking?.isNotEmpty ?? false) {
         streamingThinking.value += chunk.thinking!;
       }
@@ -337,67 +362,15 @@ class RagController extends ChangeNotifier {
       Turn(
         role: 'assistant',
         content: text.isEmpty ? (error ?? '(no response)') : text,
-        sources: sources,
-        grounded: grounded,
-        topScore: topScore,
-        threshold: threshold,
-        computed: computed,
-        searchedFor: search?.rewrittenQuery,
+        sources: prompt.sources,
+        grounded: prompt.grounded,
+        topScore: prompt.topScore,
+        threshold: prompt.threshold,
+        computed: prompt.computed,
+        searchedFor: prompt.searchedFor,
       ),
     );
     _endStreaming();
-  }
-
-  /// Answers aggregation questions ("total revenue in January") exactly from
-  /// a table. Null when no table can answer or no rows matched.
-  QueryResult? _computeFromTables(String question) {
-    for (final table in tables) {
-      final query = TableQueryPlanner.planFor(table, question);
-      final result = query == null ? null : table.aggregate(query);
-      if (result != null && !result.isEmpty) return result;
-    }
-    return null;
-  }
-
-  /// Searches the index for [question], best match first. Null when there is
-  /// no index or the search failed; the model then answers without documents.
-  Future<({List<ScoredChunk> chunks, String? rewrittenQuery})?>
-  _searchDocuments(String question, String chat) async {
-    final embed = embedModel;
-    if (!hasIndex || embed == null) return null;
-    try {
-      // A long question embeds poorly, so it is shortened to a search query.
-      String? rewritten;
-      if (condenseQueries) {
-        final condensed = await _condenser.condense(
-          model: chat,
-          question: question,
-          history: [
-            for (final turn in _previousTurns(4))
-              '${turn.role}: ${turn.content.length > 200 ? '${turn.content.substring(0, 200)}…' : turn.content}',
-          ],
-          thinkingModel: models.any((m) => m.name == chat && m.thinks),
-        );
-        if (condensed.wasCondensed) rewritten = condensed.text;
-      }
-
-      final query = rewritten ?? question;
-      final vector = await ollama.embedOne(
-        model: embed,
-        input: embed.startsWith('mxbai-embed')
-            ? '${OllamaClient.mxbaiQueryPrefix}$query'
-            : query,
-      );
-      final chunks = index!.search(
-        vector,
-        k: RetrievalSettings.topK,
-        maxPerSource: RetrievalSettings.maxChunksPerSource,
-      );
-      return (chunks: chunks, rewrittenQuery: rewritten);
-    } on Object catch (e) {
-      debugPrint('Retrieval failed, answering without documents: $e');
-      return null;
-    }
   }
 
   /// Up to [count] turns before the question currently being answered.

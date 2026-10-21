@@ -10,9 +10,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:local_rag/document_indexing/ingest.dart';
-import 'package:local_rag/ollama/ollama_client.dart';
-import 'package:local_rag/question_answering/query_condenser.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 
 import '../bench_index.dart';
@@ -22,17 +20,8 @@ const embedModel = 'mxbai-embed-large';
 const chatModel = 'gpt-oss:latest';
 
 /// The shared set, plus the long real questions that exposed the problem
-/// condensing exists to fix. Phrasings a user actually typed, not ones written
-/// to make the harness look good.
-const Map<String, String> condenseEval = {
-  ...evalSet,
-  'How much will I get as discount if I purchase shoes worth 100,000 naira '
-      'as an employee of stridewell?': 'staff_handbook.md',
-  'If I bought a pair of Heritage shoes last month and they do not fit, '
-      'can I still bring them back?': 'returns_and_warranty.md',
-  'I am thinking of applying — how much time off would I actually get '
-      'in my first year?': 'staff_handbook.md',
-};
+/// condensing exists to fix.
+const Map<String, String> condenseEval = {...evalSet, ...longFormEval};
 
 Future<int> rankOf(
   OllamaClient ollama,
@@ -53,7 +42,7 @@ Future<int> rankOf(
 
 Future<void> _run() async {
   final ollama = OllamaClient();
-  final condenser = QueryCondenser(ollama);
+  final condenser = QueryCondenser(ollama.chatModel(chatModel, think: false));
 
   stdout.writeln('Indexing sample_kb …');
   final index = await buildIndex(
@@ -74,14 +63,9 @@ Future<void> _run() async {
     final expected = entry.value;
 
     final rawRank = await rankOf(ollama, store, question, expected);
-    final condensed = await condenser.condense(
-      model: chatModel,
-      question: question,
-      thinkingModel: true,
-    );
+    final condensed = await condenser.condense(question: question);
     if (condensed.wasCondensed) rewritten++;
-    final conRank =
-        await rankOf(ollama, store, condensed.text, expected);
+    final conRank = await rankOf(ollama, store, condensed.text, expected);
 
     if (rawRank == 1) rawAt1++;
     if (rawRank > 0 && rawRank <= 5) rawAt5++;
@@ -96,13 +80,16 @@ Future<void> _run() async {
     final marker = !wasIn && nowIn
         ? ' FIXED'
         : wasIn && !nowIn
-            ? ' REGRESSED'
-            : '';
-    final short =
-        question.length > 52 ? '${question.substring(0, 49)}…' : question;
-    stdout.writeln('${short.padRight(53)} '
-        'rank ${rawRank.toString().padLeft(3)} -> '
-        '${conRank.toString().padLeft(3)}$marker');
+        ? ' REGRESSED'
+        : '';
+    final short = question.length > 52
+        ? '${question.substring(0, 49)}…'
+        : question;
+    stdout.writeln(
+      '${short.padRight(53)} '
+      'rank ${rawRank.toString().padLeft(3)} -> '
+      '${conRank.toString().padLeft(3)}$marker',
+    );
     if (condensed.wasCondensed) {
       stdout.writeln('${' ' * 53}   "${condensed.text}"');
     }
@@ -113,8 +100,12 @@ Future<void> _run() async {
 
   stdout.writeln('\n── Retrieval (n=$n, condensed $rewritten of them) ─────');
   stdout.writeln('            hit@1   hit@5');
-  stdout.writeln('raw         ${pct(rawAt1).padLeft(5)}   ${pct(rawAt5).padLeft(5)}');
-  stdout.writeln('condensed   ${pct(conAt1).padLeft(5)}   ${pct(conAt5).padLeft(5)}');
+  stdout.writeln(
+    'raw         ${pct(rawAt1).padLeft(5)}   ${pct(rawAt5).padLeft(5)}',
+  );
+  stdout.writeln(
+    'condensed   ${pct(conAt1).padLeft(5)}   ${pct(conAt5).padLeft(5)}',
+  );
 
   stdout.writeln('\nfixed:       ${fixes.length}');
   for (final f in fixes) {
@@ -132,8 +123,10 @@ Future<void> _run() async {
   ollama.close();
 }
 
-
 void main() {
-  test('query condensing: does it help, and what does it break?', _run,
-      timeout: const Timeout(Duration(minutes: 30)));
+  test(
+    'query condensing: does it help, and what does it break?',
+    _run,
+    timeout: const Timeout(Duration(minutes: 30)),
+  );
 }

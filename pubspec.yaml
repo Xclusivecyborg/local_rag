@@ -21,6 +21,12 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   http: ^1.6.0
+
+  # The RAG building blocks: splitter, condenser, tables, Ollama client.
+  # Pure Dart in its own repo next to this one, the way LangChain sits under
+  # a Python app. Switch to `rag_blocks: ^0.1.0` once it is on pub.dev.
+  rag_blocks:
+    path: ../rag_blocks
   file_picker: ^11.0.2
   path_provider: ^2.1.6
 

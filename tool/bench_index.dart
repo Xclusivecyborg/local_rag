@@ -12,17 +12,20 @@
 
 import 'dart:io';
 
-import 'package:local_rag/document_indexing/chunker.dart';
-import 'package:local_rag/document_indexing/ingest.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 import 'package:local_rag/models/ingest_progress.dart';
-import 'package:local_rag/ollama/ollama_client.dart';
+import 'package:local_rag/rag/rag_pipeline.dart';
+import 'package:local_rag/rag/rag_recipe.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 
 /// A store in a throwaway directory, plus the directory so it can be removed.
 class BenchIndex {
-  BenchIndex(this.store, this.dir);
+  BenchIndex(this.store, this.dir, [this.tables = const []]);
   final ObjectBoxStore store;
   final Directory dir;
+
+  /// The CSV tables, when the recipe keeps them for arithmetic.
+  final List<CsvTable> tables;
 
   void dispose() {
     store.close();
@@ -30,27 +33,34 @@ class BenchIndex {
   }
 }
 
-/// Chunks, embeds and indexes [files] into a fresh temporary database.
+/// Chunks, embeds and indexes [files] into a fresh temporary database, the
+/// way [recipe] says to. [chunkSize] overrides the recipe's.
 Future<BenchIndex> buildIndex({
   required OllamaClient ollama,
   required List<File> files,
   required String embeddingModel,
+  RagRecipe recipe = RagRecipe.optimized,
   int? chunkSize,
   void Function(IngestProgress)? onProgress,
 }) async {
   final dir = await Directory.systemTemp.createTemp('bench_idx');
-  final result = await Ingestor(ollama).ingest(
+  final pipeline = RagPipeline(
+    ollama,
+    recipe: chunkSize == null
+        ? recipe
+        : RagRecipe(name: 'bench', chunkSize: chunkSize),
+  );
+  final result = await pipeline.ingest(
     files: files,
     embeddingModel: embeddingModel,
     onProgress: onProgress,
-    chunkSize: chunkSize ?? defaultChunkSize,
     createIndex: (model, dimension) => ObjectBoxStore.create(
       Directory('${dir.path}/objectbox'),
       embeddingModel: model,
       dimension: dimension,
     ),
   );
-  return BenchIndex(result.index, dir);
+  return BenchIndex(result.index, dir, result.tables);
 }
 
 /// Indexes pre-built chunks, for tools that control their own chunking.

@@ -12,8 +12,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:local_rag/document_indexing/ingest.dart';
-import 'package:local_rag/ollama/ollama_client.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 
 import '../bench_index.dart';
 import '../eval_set.dart';
@@ -113,7 +112,7 @@ Future<void> _run() async {
   }
 
   stdout.write('Model answer: ');
-  await for (final chunk in ollama.chat(
+  await for (final chunk in ollama.chatStream(
     model: chatModel,
     messages: [
       ChatMessage('user',

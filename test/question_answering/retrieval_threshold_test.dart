@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:local_rag/document_indexing/chunker.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 import 'package:local_rag/question_answering/model_preferences.dart';
-import 'package:local_rag/question_answering/retrieval_settings.dart';
+import 'package:local_rag/rag/retrieval_settings.dart';
 
 void main() {
   test('the gates were measured at the current chunk size', () {

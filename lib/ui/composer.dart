@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:local_rag/question_answering/rag_controller.dart';
+import 'package:local_rag/ui/theme/app_theme.dart';
+import 'package:local_rag/ui/widgets/panel.dart';
 
 class Composer extends StatelessWidget {
   const Composer({
@@ -16,51 +18,88 @@ class Composer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = controller;
+    final theme = Theme.of(context);
     final enabled = c.canChat && !c.isStreaming;
+    final optimized = c.recipe.optimizations.every((o) => o.enabled);
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(32, 12, 32, 24),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
-      ),
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(36, 8, 36, 20),
+      child: Column(
         children: [
-          Expanded(
-            child: TextField(
-              controller: input,
-              enabled: enabled,
-              maxLines: 4,
-              minLines: 1,
-              onSubmitted: (_) => onSend(),
-              decoration: InputDecoration(
-                hintText: c.canChat
-                    ? (c.hasIndex
-                          ? 'Ask about your documents, or anything else…'
-                          : 'Say something…')
-                    : 'No chat model available',
-                border: const OutlineInputBorder(),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 14,
+          Panel(
+            padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+            radius: 16,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: input,
+                    enabled: enabled,
+                    maxLines: 4,
+                    minLines: 1,
+                    onSubmitted: (_) => onSend(),
+                    style: const TextStyle(fontSize: 14, height: 1.45),
+                    decoration: InputDecoration(
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      hintText: !c.isConnected
+                          ? 'Ollama is stopped. Press Connect to chat'
+                          : c.canChat
+                          ? (c.hasIndex
+                                ? 'Ask about your documents, or anything else…'
+                                : 'Say something…')
+                          : 'No chat model available',
+                      hintStyle: TextStyle(color: theme.hintColor),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: c.isStreaming
+                      ? IconButton.filledTonal(
+                          tooltip: 'Stop',
+                          onPressed: c.stop,
+                          icon: const Icon(Icons.stop_rounded, size: 18),
+                        )
+                      : IconButton.filled(
+                          tooltip: 'Send',
+                          onPressed: enabled ? onSend : null,
+                          icon: const Icon(
+                            Icons.arrow_upward_rounded,
+                            size: 18,
+                          ),
+                        ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 10),
-          if (c.isStreaming)
-            FilledButton.tonalIcon(
-              onPressed: c.stop,
-              icon: const Icon(Icons.stop, size: 18),
-              label: const Text('Stop'),
-            )
-          else
-            FilledButton(
-              onPressed: enabled ? onSend : null,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                child: Text('Send'),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Tag(
+                '${c.recipe.name} RAG',
+                color: optimized ? AppColors.ok : AppColors.caution,
               ),
-            ),
+              if (c.chatModel != null) ...[
+                const SizedBox(width: 6),
+                Tag(c.chatModel!),
+              ],
+              const SizedBox(width: 8),
+              Icon(Icons.wifi_off_rounded, size: 12, color: theme.hintColor),
+              const SizedBox(width: 4),
+              Text(
+                'offline',
+                style: TextStyle(fontSize: 10.5, color: theme.hintColor),
+              ),
+            ],
+          ),
         ],
       ),
     );

@@ -22,11 +22,9 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:local_rag/document_indexing/ingest.dart';
-import 'package:local_rag/ollama/ollama_client.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 import 'package:local_rag/question_answering/model_preferences.dart';
-import 'package:local_rag/question_answering/retrieval_settings.dart';
-import 'package:local_rag/vector_search/stored_chunk.dart';
+import 'package:local_rag/rag/retrieval_settings.dart';
 import '../bench_index.dart';
 import '../eval_set.dart';
 

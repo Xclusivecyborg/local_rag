@@ -1,7 +1,6 @@
-import 'package:local_rag/table_arithmetic/csv_table.dart';
-import 'package:local_rag/vector_search/stored_chunk.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 
-/// Every piece of text [RagController] sends to the chat model: the system
+/// Every piece of text [RagPipeline] sends to the chat model: the system
 /// prompt, the rules layered onto it, and the wrappers around the question.
 ///
 /// Kept apart from the controller so the wording can be read and changed in
@@ -10,7 +9,7 @@ abstract final class RagPrompts {
   /// Always present. Makes the assistant conversational by default, so
   /// "Hello" gets a greeting rather than a refusal or a document lookup.
   static const String base = '''
-You are a helpful assistant specializing in answering Questions about Stridewell Footwear Commpany.
+You are a helpful assistant specializing in answering Questions about Stridewell Footwear Company.
 
 - Chat naturally. Greetings, small talk and general questions get normal,
   conversational answers.
@@ -19,14 +18,17 @@ You are a helpful assistant specializing in answering Questions about Stridewell
   If you are asked something company-specific you do not know,
   say you do not have an answer rather than guessing.''';
 
+  /// The system prompt a tutorial gives: no rules about what not to invent.
+  /// Used when the recipe turns [base]'s guardrails off.
+  static const String tutorial = '''
+You are a helpful assistant. Answer the question using the excerpts provided.''';
+
   /// Added when an exact figure was computed over a table.
   ///
   /// No hedging clause here, and no aggregation rule. The figure was computed
   /// over every matching row, so telling the model to warn about partial
   /// samples would make it undermine a number that is exact.
   static const String computedRules = '''
-
-
 A COMPUTED RESULT is included with this question. It was calculated directly
 over every row of the user's data, not sampled or estimated, so it is exact.
 
@@ -49,16 +51,21 @@ for anything company-specific, and name the file you used.''';
 
   /// The system prompt changes shape depending on whether context was
   /// retrieved. With no excerpts it is simply a normal assistant.
+  ///
+  /// With [guarded] false, [tutorial] replaces [base], so nothing tells the
+  /// model to admit what it does not know.
   static String system({
     required bool grounded,
     required bool strictGrounding,
     bool computed = false,
+    bool guarded = true,
   }) {
-    if (computed) return '$base$computedRules';
-    if (!grounded) return base;
+    final start = guarded ? base : tutorial;
+    if (computed) return '$start$computedRules';
+    if (!grounded) return start;
     return strictGrounding
-        ? '$base$groundedRules\n$aggregationRule'
-        : '$base$groundedRules';
+        ? '$start$groundedRules\n$aggregationRule'
+        : '$start$groundedRules';
   }
 
   static String withComputed(String question, QueryResult result) =>

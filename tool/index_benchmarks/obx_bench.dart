@@ -24,9 +24,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:local_rag/document_indexing/chunker.dart';
-import 'package:local_rag/document_indexing/ingest.dart';
-import 'package:local_rag/ollama/ollama_client.dart';
+import 'package:rag_blocks/rag_blocks.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 
 import '../eval_set.dart';

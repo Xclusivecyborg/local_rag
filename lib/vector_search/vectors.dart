@@ -2,39 +2,8 @@ import 'dart:math' as math;
 
 import 'vector_entities.dart';
 
-/// A chunk as read back from the index.
-class StoredChunk {
-  StoredChunk({
-    required this.text,
-    required this.source,
-    required this.index,
-    required this.embedding,
-    this.start = 0,
-    this.end = 0,
-  });
-
-  final String text;
-  final String source;
-  final int index;
-
-  /// Character range in [source]. Both are 0 on indexes built before this was
-  /// saved, so treat `start == end` as "not recorded".
-  final int start;
-  final int end;
-
-  /// Normalised to length 1, so cosine similarity is a plain dot product.
-  final List<double> embedding;
-}
-
-class ScoredChunk {
-  const ScoredChunk(this.chunk, this.score);
-  final StoredChunk chunk;
-
-  /// Cosine similarity, from -1 to 1. Higher is more similar.
-  final double score;
-}
-
-/// Vector helpers used by the index, kept separate so they can be tested.
+/// Vector helpers used by the ObjectBox index, kept separate so they can be
+/// tested.
 abstract final class Vectors {
   /// The width a [modelDimension]-wide vector is stored at: the smallest
   /// supported width that fits it.
@@ -80,6 +49,17 @@ abstract final class Vectors {
     return [for (final x in v) x / length];
   }
 
+  /// Dot product over the shorter of the two; for normalised vectors this is
+  /// cosine similarity.
+  static double dot(List<double> a, List<double> b) {
+    var sum = 0.0;
+    final n = a.length < b.length ? a.length : b.length;
+    for (var i = 0; i < n; i++) {
+      sum += a[i] * b[i];
+    }
+    return sum;
+  }
+
   /// Throws if a vector's width does not match the index. ObjectBox accepts
   /// the wrong width silently and returns wrong results from then on.
   static void checkDimension(int got, int expected, {required bool isQuery}) {
@@ -91,26 +71,5 @@ abstract final class Vectors {
           : 'Embedding dimension mismatch: expected $expected, got $got. '
                 'The embedding model changed underneath this index.',
     );
-  }
-
-  /// The first [k] of [sorted], taking at most [maxPerSource] from any one
-  /// file. Stops one large file (like a 240-row CSV) filling every slot;
-  /// on sample_kb a cap of 2 lifts hit@1 from 83% to 100%.
-  static List<ScoredChunk> capPerSource(
-    List<ScoredChunk> sorted,
-    int k,
-    int? maxPerSource,
-  ) {
-    if (maxPerSource == null) return sorted.take(k).toList();
-    final perSource = <String, int>{};
-    final kept = <ScoredChunk>[];
-    for (final hit in sorted) {
-      final used = perSource[hit.chunk.source] ?? 0;
-      if (used >= maxPerSource) continue;
-      perSource[hit.chunk.source] = used + 1;
-      kept.add(hit);
-      if (kept.length >= k) break;
-    }
-    return kept;
   }
 }
