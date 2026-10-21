@@ -158,9 +158,31 @@ class RagPipeline {
     bool thinkingModel = false,
   }) async {
     // 5a. Arithmetic over a table is exact, so it takes priority.
-    final computed = recipe.computeFromTables
+    var computed = recipe.computeFromTables
         ? TableQueryPlanner.answer(tables, question)
         : null;
+
+    // A short follow-up ("2026", "and February?") is not a question the
+    // planner can read on its own, so it gets one more try with the
+    // conversation filled in.
+    final isShortFollowUp =
+        history.isNotEmpty &&
+        question.trim().split(RegExp(r'\s+')).length <
+            QueryCondenser.minWordsToCondense;
+    if (computed == null &&
+        recipe.computeFromTables &&
+        tables.isNotEmpty &&
+        isShortFollowUp) {
+      final standalone = await _resolveFollowUp(
+        question,
+        chatModel: chatModel,
+        history: _last(history, condenserHistoryTurns),
+        thinkingModel: thinkingModel,
+      );
+      if (standalone != null) {
+        computed = TableQueryPlanner.answer(tables, standalone);
+      }
+    }
 
     // 5b. Otherwise retrieve.
     List<ScoredChunk> hits = const [];
@@ -234,6 +256,25 @@ class RagPipeline {
   /// 6. Generation: streams the answer to [prompt].
   Stream<ChatChunk> generate(String chatModel, PreparedPrompt prompt) =>
       ollama.chatStream(model: chatModel, messages: prompt.messages);
+
+  /// [question] rewritten as a standalone question, or null if the rewrite
+  /// failed or changed nothing.
+  Future<String?> _resolveFollowUp(
+    String question, {
+    required String chatModel,
+    required List<Turn> history,
+    required bool thinkingModel,
+  }) async {
+    final resolver = QueryCondenser(
+      ollama.chatModel(chatModel, think: thinkingModel ? false : null),
+      systemPrompt: RagPrompts.followUp,
+    );
+    final resolved = await resolver.condense(
+      question: question,
+      history: _forCondenser(history),
+    );
+    return resolved.wasCondensed ? resolved.text : null;
+  }
 
   /// Earlier turns as condenser context, long answers cut to their start.
   static List<String> _forCondenser(List<Turn> history) => [

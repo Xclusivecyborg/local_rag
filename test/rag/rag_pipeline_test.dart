@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:local_rag/models/message_turn.dart';
 import 'package:local_rag/rag/rag_pipeline.dart';
 import 'package:local_rag/rag/rag_prompts.dart';
 import 'package:local_rag/rag/rag_recipe.dart';
@@ -213,6 +214,72 @@ void main() {
         reason: recipe.name,
       );
     }
+  });
+
+  test(
+    'a short follow-up is computed with the conversation filled in',
+    () async {
+      final index = await ingest(RagRecipe.optimized);
+      final history = [
+        Turn(role: 'user', content: 'How much revenue was made in Q1?'),
+        Turn(role: 'assistant', content: 'Which year do you mean?'),
+      ];
+      final chats = <String>[];
+      final prompt =
+          await RagPipeline(
+            fakeOllama(
+              chatRequests: chats,
+              chatReply: 'How much revenue was made in Q1 2026?',
+            ),
+            recipe: RagRecipe.optimized,
+          ).prepare(
+            question: '2026',
+            chatModel: 'test-chat',
+            embeddingModel: embedModel,
+            index: index.store,
+            tables: index.tables,
+            history: history,
+          );
+
+      // On its own "2026" is not a question; rewritten, it covers every row.
+      expect(prompt.computed?.value, 7500);
+      expect(chats.single, contains('standalone question'));
+      expect(chats.single, contains('Which year do you mean?'));
+    },
+  );
+
+  test('a follow-up the rewrite cannot rescue falls back to search', () async {
+    final index = await ingest(RagRecipe.optimized);
+    final prompt =
+        await RagPipeline(
+          fakeOllama(chatReply: 'How much was made in Q1 2026?'),
+          recipe: RagRecipe.optimized,
+        ).prepare(
+          question: '2026',
+          chatModel: 'test-chat',
+          embeddingModel: embedModel,
+          index: index.store,
+          tables: index.tables,
+          history: [Turn(role: 'user', content: 'How much was made in Q1?')],
+        );
+    // "made" names no column, so the planner still declines.
+    expect(prompt.computed, isNull);
+  });
+
+  test('without a conversation there is no follow-up rewrite', () async {
+    final index = await ingest(RagRecipe.optimized);
+    final chats = <String>[];
+    await RagPipeline(
+      fakeOllama(chatRequests: chats),
+      recipe: RagRecipe.optimized,
+    ).prepare(
+      question: 'How much was made in Q1?',
+      chatModel: 'test-chat',
+      embeddingModel: embedModel,
+      index: index.store,
+      tables: index.tables,
+    );
+    expect(chats.where((c) => c.contains('standalone question')), isEmpty);
   });
 
   test('optimized asks for missing details unless a figure was computed', () {

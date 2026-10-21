@@ -64,6 +64,34 @@ for anything company-specific, and name the file you used.''';
   ("Ikeja": which location?), or a relative date ("last month": which month and
   year?).''';
 
+  /// Rewrites a short follow-up into a question [TableQueryPlanner] can read.
+  ///
+  /// Not the search condenser's prompt: that one drops "how much" and the
+  /// numbers to make a good search query, which leaves the planner nothing.
+  static const String followUp = '''
+You rewrite a follow-up message into one complete, standalone question, using
+the conversation so far.
+
+Rules:
+- Output ONLY the question. No preamble, no quotes, no explanation.
+- Keep the user's words for what to calculate: "how much", "total", "average",
+  the measure, the period, and any store or product line.
+- Fill in what the follow-up leaves out from the earlier question, such as the
+  year or the measure.
+- If the message is already a complete question, repeat it unchanged.
+
+Examples:
+Conversation so far:
+user: How much was made in Q1?
+assistant: Which year do you mean? The sales data covers 2026.
+Q: 2026
+How much was made in Q1 2026?
+Conversation so far:
+user: What was the total revenue at Ikeja City Mall in January 2026?
+assistant: Total revenue at Ikeja City Mall in January 2026 was 15,203,000.
+Q: and February?
+What was the total revenue at Ikeja City Mall in February 2026?''';
+
   /// The system prompt changes shape depending on whether context was
   /// retrieved. With no excerpts it is simply a normal assistant.
   ///
