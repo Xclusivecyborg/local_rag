@@ -69,12 +69,12 @@ list the app takes whichever model sorts first alphabetically, which is how
 `gemma4` ends up beating `gpt-oss` — on spelling rather than on merit. Any
 other installed model can still be chosen from the sidebar.
 
-## Two RAGs: naive and optimized
+## Two RAGs: normal and optimized
 
 `lib/main.dart` picks which RAG the app starts with:
 
 ```dart
-var recipe = RagRecipe.naive;
+var recipe = RagRecipe.normal;
 
 // Uncomment to start with every optimization on, then hot restart.
 // recipe = RagRecipe.optimized;
@@ -84,7 +84,7 @@ Both run through the same `RagPipeline`. A `RagRecipe` is a set of switches,
 one per optimization this project measured, and the sidebar ticks off the ones
 that are on:
 
-| Switch | naive | optimized | What it fixes |
+| Switch | normal | optimized | What it fixes |
 |---|---|---|---|
 | `chunkSize` | 1200 | 600 | short questions match small chunks (6/12 vs 10/12 retrieve) |
 | `csvAsProse` | off | (unused) | `location: Victoria Island. units_sold: 41.` embeds; a raw CSV line doesn't. Optimized doesn't embed CSVs at all |
@@ -93,10 +93,10 @@ that are on:
 | `maxChunksPerSource` | none | 2 | the 240-row CSV can't fill every slot |
 | `relevanceGate` | off | on | "Hello" gets a greeting, not the returns policy |
 | `strictGrounding` | off | on | the model won't estimate a total from a partial sample |
-| `guardedPrompt` | off | on | the system prompt forbids inventing company facts; naive gets the tutorial's "answer using the excerpts" |
+| `guardedPrompt` | off | on | the system prompt forbids inventing company facts; normal gets the tutorial's "answer using the excerpts" |
 
 The app can also switch while it runs: the **Optimize** switch in the top
-corner of the recipe card flips between naive and optimized. The conversation
+corner of the recipe card flips between normal and optimized. The conversation
 stays on screen, so the same question can be asked under both. The switch is
 greyed out while an answer streams or a folder is indexing.
 
@@ -116,7 +116,7 @@ writes `talk/eval/before_after.json` with every question, answer and score.
 
 Measured 2026-10-19 on `sample_kb/` with `locusai/all-minilm-l6-v2` and `gpt-oss`:
 
-| | naive | optimized |
+| | normal | optimized |
 |---|---|---|
 | Right file in the model's context (23 questions) | 22 | 23 |
 | Right file ranked first (23) | 19 | 20 |
@@ -124,11 +124,11 @@ Measured 2026-10-19 on `sample_kb/` with `locusai/all-minilm-l6-v2` and `gpt-oss
 | Totals exactly right, end to end (6) | 0 | 6 |
 | Median time to build the prompt | 24 ms | 38 ms |
 
-Naive's lookups look fine because it never filters: the right file usually rides
+Normal's lookups look fine because it never filters: the right file usually rides
 along in its top five, along with everything else. The difference is what it
 costs: every "Hello" gets five excerpts pasted in, and every total is wrong.
-Naive's totals fail because the sales rows never reach the model at all, and
-gpt-oss says so rather than guessing. Naive misses the long employee-discount
+Normal's totals fail because the sales rows never reach the model at all, and
+gpt-oss says so rather than guessing. Normal misses the long employee-discount
 question; the optimized recipe's condensed query finds it.
 
 ## The evaluation harness
@@ -557,7 +557,7 @@ Two details that matter more than they look:
 
 ## Conversation, and knowing when *not* to retrieve
 
-A naive RAG app injects five document chunks into every request. Say "Hello" and
+A basic RAG app injects five document chunks into every request. Say "Hello" and
 it either errors or answers your greeting with the returns policy.
 
 This one always searches, but only *uses* the result when the top score clears a
@@ -631,7 +631,7 @@ lib/
   libobjectbox.dylib           native lib for `flutter test` (gitignored)
 
   rag/                         the workflow: this app's RAG, step by step
-    rag_recipe.dart            the switches, and the naive / optimized presets
+    rag_recipe.dart            the switches, and the normal / optimized presets
     rag_pipeline.dart          ingest (load, chunk, embed, store) and prepare (compute or retrieve, gate, prompt)
     calculate_tool.dart        the calculate tool: describes the CSV tables, checks the model's requests, computes exact figures
     rag_prompts.dart           every piece of text sent to the chat model
@@ -683,7 +683,7 @@ tool/
     gate_shape.dart            can the gate pass short questions but not chitchat?
     why_did_it_miss.dart       post-mortem: full top-5 for one failing question
     condense_eval.dart         does query condensing help, and what does it break?
-    before_after.dart          naive vs optimized recipe, written to talk/eval/
+    before_after.dart          normal vs optimized recipe, written to talk/eval/
   ui_preview/
     app_preview.dart           renders the app's screens to PNGs, no screen recording needed
   index_benchmarks/            which vector backend, and from what corpus size?
