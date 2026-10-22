@@ -1,6 +1,6 @@
 /// Which RAG this app runs: every optimization is one switch here.
 ///
-/// [naive] is the pipeline every tutorial builds: split, embed, take the top
+/// [normal] is the pipeline every tutorial builds: split, embed, take the top
 /// five, paste them into the prompt. [optimized] is the same pipeline with
 /// each fix this project measured turned on. Both run through the same
 /// [RagPipeline], so any difference in their answers comes from these
@@ -11,7 +11,7 @@ class RagRecipe {
     this.chunkSize = 600,
     this.chunkOverlap = 200,
     this.csvAsProse = true,
-    this.computeFromTables = true,
+    this.useToolCalling = true,
     this.condenseQueries = true,
     this.maxChunksPerSource = 2,
     this.relevanceGate = true,
@@ -33,14 +33,16 @@ class RagRecipe {
 
   /// Rewrite CSV rows as labelled sentences before embedding.
   /// `Region: Lagos. Units sold: 48.` gives an embedder something to match;
-  /// `2026-01-05,Lagos,Everyday,48` does not.
+  /// `2026-01-05,Lagos,Everyday,48` does not. Has no effect with
+  /// [useToolCalling], which does not embed CSV files at all.
   final bool csvAsProse;
 
   // ---- Answering -------------------------------------------------------
 
-  /// Answer totals and averages by computing over every CSV row, instead of
-  /// letting the model add up the five chunks it happened to retrieve.
-  final bool computeFromTables;
+  /// Keep CSV files out of the index and give the model a calculate tool
+  /// instead, so totals and averages are computed over every row by code,
+  /// not added up by the model from the five chunks it happened to retrieve.
+  final bool useToolCalling;
 
   /// Rewrite a long question into a short search query before embedding it.
   final bool condenseQueries;
@@ -65,11 +67,11 @@ class RagRecipe {
   final int topK;
 
   /// The tutorial pipeline, with every optimization off.
-  static const RagRecipe naive = RagRecipe(
-    name: 'naive',
+  static const RagRecipe normal = RagRecipe(
+    name: 'normal',
     chunkSize: 1200,
     csvAsProse: false,
-    computeFromTables: false,
+    useToolCalling: false,
     condenseQueries: false,
     maxChunksPerSource: null,
     relevanceGate: false,
@@ -102,12 +104,14 @@ class RagRecipe {
       enabled: chunkSize <= 600,
       setting: '$chunkSize chars',
     ),
-    Optimization(
-      'CSV rows as prose',
-      'Turn spreadsheet rows into sentences',
-      RagStage.indexing,
-      enabled: csvAsProse,
-    ),
+    // Tool calling keeps CSV files out of the index, so this does nothing.
+    if (!useToolCalling)
+      Optimization(
+        'CSV rows as prose',
+        'Turn spreadsheet rows into sentences',
+        RagStage.indexing,
+        enabled: csvAsProse,
+      ),
     Optimization(
       'Query condensing',
       'Shorten and optimize long questions first',
@@ -132,11 +136,11 @@ class RagRecipe {
       enabled: relevanceGate,
     ),
     Optimization(
-      'Exact Table Calculations',
-      'Calculate precise answers to mathematical questions using the '
-          'provided data instead of leaving the arithmetic to the AI.',
+      'Use Tool Calling',
+      'When you have data that needs to be computed, like CSV tables, '
+          'don\'t embed it. Use tool calling to fetch data from it instead.',
       RagStage.answering,
-      enabled: computeFromTables,
+      enabled: useToolCalling,
     ),
     Optimization(
       'Strict Data Grounding',
@@ -184,7 +188,7 @@ class Optimization {
   final bool enabled;
 
   /// The value it runs with, e.g. "600 chars", shown even when the
-  /// optimization is off if the naive value teaches something (1200 chars).
+  /// optimization is off if the normal value teaches something (1200 chars).
   /// Null when there is none.
   final String? setting;
 }

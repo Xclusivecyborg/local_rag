@@ -5,7 +5,7 @@ import 'package:local_rag/ui/app.dart';
 
 void main() {
   // The RAG every tutorial builds: chunk, embed, top five, paste, answer.
-  var recipe = RagRecipe.naive;
+  var recipe = RagRecipe.normal;
 
   // Uncomment to start with every optimization on, then hot restart.
   // The "Optimize" switch on the sidebar's recipe card flips it live too.

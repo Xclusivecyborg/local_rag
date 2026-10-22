@@ -39,7 +39,7 @@ void main() {
   setUp(() async {
     root = await Directory.systemTemp.createTemp('recipe_switch_test');
     PathProviderPlatform.instance = _TempPathProvider(root.path);
-    controller = RagController(recipe: RagRecipe.naive)
+    controller = RagController(recipe: RagRecipe.normal)
       ..embedModel = embedModel;
   });
 
@@ -67,7 +67,7 @@ void main() {
   }
 
   test('switching opens that recipe\'s own index', () async {
-    await saveIndex(RagRecipe.naive, 2);
+    await saveIndex(RagRecipe.normal, 2);
     await saveIndex(RagRecipe.optimized, 5);
 
     await controller.setRecipe(RagRecipe.optimized);
@@ -75,14 +75,14 @@ void main() {
     expect(controller.index?.size, 5);
     expect(controller.error, isNull);
 
-    await controller.setRecipe(RagRecipe.naive);
-    expect(controller.recipe.name, 'naive');
+    await controller.setRecipe(RagRecipe.normal);
+    expect(controller.recipe.name, 'normal');
     expect(controller.index?.size, 2);
     expect(controller.error, isNull);
   });
 
   test('switching to a recipe with no index says how to build one', () async {
-    await saveIndex(RagRecipe.naive, 2);
+    await saveIndex(RagRecipe.normal, 2);
     await controller.setRecipe(RagRecipe.optimized);
 
     expect(controller.recipe.name, 'optimized');
@@ -103,6 +103,6 @@ void main() {
     expect(controller.canSwitchRecipe, isFalse);
 
     await controller.setRecipe(RagRecipe.optimized);
-    expect(controller.recipe.name, 'naive');
+    expect(controller.recipe.name, 'normal');
   });
 }

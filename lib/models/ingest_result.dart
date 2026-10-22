@@ -1,4 +1,4 @@
-import 'package:rag_blocks/rag_blocks.dart';
+import 'package:local_rag/tables/csv_table.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 
 /// What indexing a folder produced.

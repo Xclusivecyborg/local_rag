@@ -10,7 +10,7 @@ abstract final class AppColors {
   /// On, connected, indexed, optimized.
   static const Color ok = Color(0xFF4ADE80);
 
-  /// The naive recipe: not an error, but not the version you want.
+  /// The normal recipe: not an error, but not the version you want.
   static const Color caution = Color(0xFFFBBF24);
 
   /// An answer computed from a table rather than retrieved.

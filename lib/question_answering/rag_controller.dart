@@ -9,6 +9,7 @@ import 'package:local_rag/rag/rag_recipe.dart';
 import 'package:local_rag/rag/retrieval_settings.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:local_rag/tables/csv_table.dart';
 import 'package:rag_blocks/rag_blocks.dart';
 
 import 'model_preferences.dart';
@@ -177,7 +178,7 @@ class RagController extends ChangeNotifier {
   /// both are using the current recipe's pipeline and index.
   bool get canSwitchRecipe => !isStreaming && !isIndexing;
 
-  /// Switches between recipes while the app runs, e.g. naive to optimized.
+  /// Switches between recipes while the app runs, e.g. normal to optimized.
   ///
   /// Each recipe chunks differently, so each has its own index: the current
   /// one is closed and the new recipe's saved index is opened. The

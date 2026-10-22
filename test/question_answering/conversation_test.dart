@@ -10,6 +10,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:local_rag/tables/csv_table.dart';
 import 'package:rag_blocks/rag_blocks.dart';
 import 'package:local_rag/question_answering/rag_controller.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
@@ -157,11 +158,12 @@ void main() {
 
     final reply = c.turns.last;
 
-    // Answered by computing, not by retrieval. These are mutually exclusive.
+    // The model called the calculate tool rather than adding up excerpts.
+    // The spreadsheet is not embedded, so no excerpt can be a sales row.
     expect(reply.isComputed, isTrue,
-        reason: 'should have been routed to the table, not the retriever');
-    expect(reply.grounded, isFalse);
-    expect(reply.sources, isEmpty);
+        reason: 'the model should have called the calculate tool');
+    expect(reply.sources.where((s) => s.chunk.source.endsWith('.csv')),
+        isEmpty);
 
     // Every January row, not a sample.
     expect(reply.computed!.value, 71882000);
@@ -200,8 +202,8 @@ void main() {
     await c.ask('How many days do I have to return unworn shoes?');
 
     final reply = c.turns.last;
-    // "How many" is an aggregation word, but no numeric column matches, so
-    // the planner must decline and leave this to the retriever.
+    // A policy question: nothing to calculate, so the answer comes from the
+    // returns policy excerpt.
     expect(reply.isComputed, isFalse);
     expect(reply.grounded, isTrue);
     expect(reply.content, contains('21'));

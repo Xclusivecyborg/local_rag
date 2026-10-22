@@ -5,7 +5,7 @@
 //   OUT=/tmp/previews flutter test tool/ui_preview/app_preview.dart
 //
 // Writes conversation.png (optimized recipe, every kind of answer badge),
-// empty.png (naive recipe, first run) and streaming.png (a reply in flight)
+// empty.png (normal recipe, first run) and streaming.png (a reply in flight)
 // into build/ui_preview/ or $OUT.
 //
 // flutter_test draws text in a placeholder font, so the macOS system fonts and
@@ -26,6 +26,7 @@ import 'package:local_rag/ui/sidebar/sidebar.dart';
 import 'package:local_rag/ui/theme/app_theme.dart';
 import 'package:local_rag/ui/transcript/transcript.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
+import 'package:local_rag/tables/csv_table.dart';
 import 'package:rag_blocks/rag_blocks.dart';
 
 Future<void> loadFont(String family, String path) async {
@@ -237,8 +238,8 @@ void main() {
       ..turns.addAll(conversation());
     await capture(tester, optimized, 'conversation.png');
 
-    final naive = fakeController(RagRecipe.naive, index);
-    await capture(tester, naive, 'empty.png');
+    final normal = fakeController(RagRecipe.normal, index);
+    await capture(tester, normal, 'empty.png');
 
     final streaming = fakeController(RagRecipe.optimized, index)
       ..turns.add(

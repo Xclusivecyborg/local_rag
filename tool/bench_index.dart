@@ -12,6 +12,7 @@
 
 import 'dart:io';
 
+import 'package:local_rag/tables/csv_table.dart';
 import 'package:rag_blocks/rag_blocks.dart';
 import 'package:local_rag/models/ingest_progress.dart';
 import 'package:local_rag/rag/rag_pipeline.dart';

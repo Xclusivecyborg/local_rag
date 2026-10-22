@@ -44,7 +44,7 @@ class Sidebar extends StatelessWidget {
               recipe: c.recipe,
               onOptimizedChanged: c.canSwitchRecipe
                   ? (on) =>
-                        c.setRecipe(on ? RagRecipe.optimized : RagRecipe.naive)
+                        c.setRecipe(on ? RagRecipe.optimized : RagRecipe.normal)
                   : null,
             ),
             const SizedBox(height: 24),

@@ -3,7 +3,7 @@
 //
 //   OUT=/tmp/talk flutter test tool/ui_preview/talk_shots.dart
 //
-// Writes naive_answer.png (the naive recipe's real reply to the revenue
+// Writes normal_answer.png (the normal recipe's real reply to the revenue
 // question, from talk/eval/before_after.json), stopped.png (Ollama stopped)
 // and indexing.png (indexing in progress).
 
@@ -65,8 +65,8 @@ void main() {
       dir.deleteSync(recursive: true);
     });
 
-    // The naive recipe's actual answer, measured on 2026-10-14.
-    final naive = preview.fakeController(RagRecipe.naive, index)
+    // The normal recipe's actual answer, measured on 2026-10-14.
+    final normal = preview.fakeController(RagRecipe.normal, index)
       ..turns.addAll([
         Turn(
           role: 'user',
@@ -88,9 +88,9 @@ void main() {
           ],
         ),
       ]);
-    await preview.capture(tester, naive, 'naive_answer.png');
+    await preview.capture(tester, normal, 'normal_answer.png');
 
-    final stopped = preview.fakeController(RagRecipe.naive, index)
+    final stopped = preview.fakeController(RagRecipe.normal, index)
       ..ollamaVersion = null
       ..stoppedByUser = true;
     await preview.capture(tester, stopped, 'stopped.png');

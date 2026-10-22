@@ -23,18 +23,26 @@ You are a helpful assistant specializing in answering Questions about Stridewell
   static const String tutorial = '''
 You are a helpful assistant. Answer the question using the excerpts provided.''';
 
-  /// Added when an exact figure was computed over a table.
-  ///
-  /// No hedging clause here, and no aggregation rule. The figure was computed
-  /// over every matching row, so telling the model to warn about partial
-  /// samples would make it undermine a number that is exact.
-  static const String computedRules = '''
-A COMPUTED RESULT is included with this question. It was calculated directly
-over every row of the user's data, not sampled or estimated, so it is exact.
+  /// Added at the end when the model can call the calculate tool, followed
+  /// by the table description, so it knows what it can compute and when to ask.
+  static const String toolRules = '''
+You can calculate exact figures from the user's spreadsheets with the
+calculate tool. The tables are described below.
 
-- Report the figure as given. Do not recompute it, round it, or adjust it.
-- State what it covers (the period, any filters, how many rows).
-- Do not warn that it might be incomplete. It is not.''';
+- For any question that needs numbers from more than one row, call
+  calculate. Never add up, average or count numbers yourself.
+- Report the figure the tool returns as given, and say what it covers
+  (the period, any filters, how many rows).
+- If the tool says a request cannot run, fix the request, or ask the user
+  if it is unclear.
+- If the data covers only part of the period asked about, calculate over
+  what it has and say which dates it covers, instead of asking.''';
+
+  /// Sent when the model's tool call was not valid JSON, before it is asked
+  /// again.
+  static const String unreadableToolCall =
+      'Your last calculate call was not valid JSON, so it was not run. Call '
+      'calculate again with valid JSON arguments.';
 
   /// Added when retrieved excerpts cleared the relevance gate.
   static const String groundedRules = '''
@@ -64,56 +72,28 @@ for anything company-specific, and name the file you used.''';
   ("Ikeja": which location?), or a relative date ("last month": which month and
   year?).''';
 
-  /// Rewrites a short follow-up into a question [TableQueryPlanner] can read.
-  ///
-  /// Not the search condenser's prompt: that one drops "how much" and the
-  /// numbers to make a good search query, which leaves the planner nothing.
-  static const String followUp = '''
-You rewrite a follow-up message into one complete, standalone question, using
-the conversation so far.
-
-Rules:
-- Output ONLY the question. No preamble, no quotes, no explanation.
-- Keep the user's words for what to calculate: "how much", "total", "average",
-  the measure, the period, and any store or product line.
-- Fill in what the follow-up leaves out from the earlier question, such as the
-  year or the measure.
-- If the message is already a complete question, repeat it unchanged.
-
-Examples:
-Conversation so far:
-user: How much was made in Q1?
-assistant: Which year do you mean? The sales data covers 2026.
-Q: 2026
-How much was made in Q1 2026?
-Conversation so far:
-user: What was the total revenue at Ikeja City Mall in January 2026?
-assistant: Total revenue at Ikeja City Mall in January 2026 was 15,203,000.
-Q: and February?
-What was the total revenue at Ikeja City Mall in February 2026?''';
-
   /// The system prompt changes shape depending on whether context was
   /// retrieved. With no excerpts it is simply a normal assistant.
   ///
   /// With [guarded] false, [tutorial] replaces [base], so nothing tells the
   /// model to admit what it does not know.
+  ///
+  /// [tables] is the calculate tool's table description, when the model has
+  /// the tool.
   static String system({
     required bool grounded,
     required bool strictGrounding,
-    bool computed = false,
+    String? tables,
     bool guarded = true,
   }) {
     final start = guarded ? base : tutorial;
-    if (computed) return '$start\n\n$computedRules';
-    if (!grounded) return strictGrounding ? '$start\n$clarifyRule' : start;
-    return strictGrounding
+    final rules = !grounded
+        ? (strictGrounding ? '$start\n$clarifyRule' : start)
+        : strictGrounding
         ? '$start$groundedRules\n$clarifyRule\n$aggregationRule'
         : '$start$groundedRules';
+    return tables == null ? rules : '$rules\n\n$toolRules\n\n$tables';
   }
-
-  static String withComputed(String question, QueryResult result) =>
-      'COMPUTED RESULT (exact, from the full dataset):\n'
-      '${result.toPromptBlock()}\nQUESTION: $question';
 
   static String withContext(String question, List<ScoredChunk> hits) {
     final ctx = StringBuffer();
