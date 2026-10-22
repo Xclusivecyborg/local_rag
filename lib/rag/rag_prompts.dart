@@ -61,7 +61,11 @@ them as something the user shared.''';
   way to ask that can be computed: one measure, one period with its year, and
   at most one store or product line, such as "total revenue in Q1 2026". If the
   question excludes something or compares periods, suggest asking for each part
-  separately, e.g. the total and the Heritage figure, then subtract.''';
+  separately, e.g. the total and the Heritage figure, then subtract.
+- Never add up or subtotal the excerpt rows yourself, not even for the rows
+  shown.
+- Do not ask the user to share or upload more data: the full data is already
+  indexed. Suggest a question instead.''';
 
   /// Added under strict grounding whenever nothing was computed, so a
   /// question missing a detail gets a question back instead of a refusal.
