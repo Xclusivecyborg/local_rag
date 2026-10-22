@@ -1,31 +1,28 @@
 {
-  "measuredOn": "2026-10-19",
+  "measuredOn": "2026-10-22",
   "embeddingModel": "locusai/all-minilm-l6-v2:latest",
   "chatModel": "gpt-oss:latest",
   "corpus": "sample_kb",
   "results": [
     {
-      "recipe": "naive",
+      "recipe": "normal",
       "optimizations": {
-        "Small chunks": false,
-        "CSV rows as prose": false,
+        "Fine tune prompts": false,
         "Query condensing": false,
         "Per-file cap": false,
-        "Relevance Filtering": false,
-        "Exact Table Calculations": false,
-        "Strict Data Grounding": false,
-        "Never-invent prompt": false
+        "Relevance filtering": false,
+        "Tool calling": false
       },
-      "chunks": 23,
+      "chunks": 49,
       "summary": {
         "lookupHit": 22,
-        "lookupHitAt1": 19,
+        "lookupHitAt1": 18,
         "lookupTotal": 23,
         "smallTalkClean": 0,
         "smallTalkTotal": 12,
-        "arithmeticCorrect": 0,
-        "arithmeticTotal": 6,
-        "medianPrepareMs": 24
+        "questionsPassed": 4,
+        "questionsTotal": 10,
+        "medianPrepareMs": 25
       },
       "lookups": [
         {
@@ -36,7 +33,7 @@
             "returns_and_warranty.md",
             "returns_and_warranty.md",
             "suppliers.md",
-            "company_overview.md"
+            "returns_and_warranty.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -49,7 +46,7 @@
             "returns_and_warranty.md",
             "returns_and_warranty.md",
             "suppliers.md",
-            "staff_handbook.md",
+            "suppliers.md",
             "suppliers.md"
           ],
           "hit": true,
@@ -64,7 +61,7 @@
             "returns_and_warranty.md",
             "returns_and_warranty.md",
             "staff_handbook.md",
-            "suppliers.md"
+            "returns_and_warranty.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -77,8 +74,8 @@
             "company_overview.md",
             "staff_handbook.md",
             "staff_handbook.md",
-            "company_overview.md",
-            "company_overview.md"
+            "suppliers.md",
+            "staff_handbook.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -88,14 +85,14 @@
           "question": "Where is the Abuja branch located?",
           "expected": "company_overview.md",
           "seen": [
-            "company_overview.md",
+            "sales_q1_2026.csv",
             "sales_q1_2026.csv",
             "sales_q1_2026.csv",
             "sales_q1_2026.csv",
             "sales_q1_2026.csv"
           ],
-          "hit": true,
-          "hitAt1": true,
+          "hit": false,
+          "hitAt1": false,
           "searchedFor": null
         },
         {
@@ -104,9 +101,9 @@
           "seen": [
             "company_overview.md",
             "company_overview.md",
+            "company_overview.md",
             "sales_q1_2026.csv",
-            "sales_q1_2026.csv",
-            "suppliers.md"
+            "sales_q1_2026.csv"
           ],
           "hit": true,
           "hitAt1": true,
@@ -117,10 +114,10 @@
           "expected": "suppliers.md",
           "seen": [
             "suppliers.md",
-            "returns_and_warranty.md",
+            "company_overview.md",
             "returns_and_warranty.md",
             "suppliers.md",
-            "suppliers.md"
+            "returns_and_warranty.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -132,7 +129,7 @@
           "seen": [
             "suppliers.md",
             "suppliers.md",
-            "returns_and_warranty.md",
+            "company_overview.md",
             "suppliers.md",
             "returns_and_warranty.md"
           ],
@@ -148,7 +145,7 @@
             "suppliers.md",
             "suppliers.md",
             "returns_and_warranty.md",
-            "returns_and_warranty.md"
+            "suppliers.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -158,10 +155,24 @@
           "question": "How much annual leave do full-time staff get?",
           "expected": "staff_handbook.md",
           "seen": [
+            "company_overview.md",
             "staff_handbook.md",
             "staff_handbook.md",
-            "company_overview.md",
-            "company_overview.md",
+            "staff_handbook.md",
+            "staff_handbook.md"
+          ],
+          "hit": true,
+          "hitAt1": false,
+          "searchedFor": null
+        },
+        {
+          "question": "What discount do employees get on Heritage shoes?",
+          "expected": "staff_handbook.md",
+          "seen": [
+            "staff_handbook.md",
+            "returns_and_warranty.md",
+            "suppliers.md",
+            "returns_and_warranty.md",
             "company_overview.md"
           ],
           "hit": true,
@@ -169,27 +180,13 @@
           "searchedFor": null
         },
         {
-          "question": "What discount do employees get on Heritage shoes?",
-          "expected": "staff_handbook.md",
-          "seen": [
-            "returns_and_warranty.md",
-            "returns_and_warranty.md",
-            "suppliers.md",
-            "staff_handbook.md",
-            "company_overview.md"
-          ],
-          "hit": true,
-          "hitAt1": false,
-          "searchedFor": null
-        },
-        {
           "question": "What commission do staff earn on Heritage sales?",
           "expected": "staff_handbook.md",
           "seen": [
             "staff_handbook.md",
-            "suppliers.md",
             "staff_handbook.md",
             "company_overview.md",
+            "staff_handbook.md",
             "suppliers.md"
           ],
           "hit": true,
@@ -198,62 +195,6 @@
         },
         {
           "question": "Who is Tunde?",
-          "expected": "company_overview.md",
-          "seen": [
-            "company_overview.md",
-            "suppliers.md",
-            "company_overview.md",
-            "sales_q1_2026.csv",
-            "sales_q1_2026.csv"
-          ],
-          "hit": true,
-          "hitAt1": true,
-          "searchedFor": null
-        },
-        {
-          "question": "Who is Adaeze?",
-          "expected": "company_overview.md",
-          "seen": [
-            "company_overview.md",
-            "company_overview.md",
-            "suppliers.md",
-            "sales_q1_2026.csv",
-            "sales_q1_2026.csv"
-          ],
-          "hit": true,
-          "hitAt1": true,
-          "searchedFor": null
-        },
-        {
-          "question": "Who is the Operations Director?",
-          "expected": "company_overview.md",
-          "seen": [
-            "company_overview.md",
-            "suppliers.md",
-            "staff_handbook.md",
-            "company_overview.md",
-            "suppliers.md"
-          ],
-          "hit": true,
-          "hitAt1": true,
-          "searchedFor": null
-        },
-        {
-          "question": "Who are the founders?",
-          "expected": "company_overview.md",
-          "seen": [
-            "suppliers.md",
-            "company_overview.md",
-            "company_overview.md",
-            "sales_q1_2026.csv",
-            "sales_q1_2026.csv"
-          ],
-          "hit": true,
-          "hitAt1": false,
-          "searchedFor": null
-        },
-        {
-          "question": "What is the RC number?",
           "expected": "company_overview.md",
           "seen": [
             "suppliers.md",
@@ -267,14 +208,70 @@
           "searchedFor": null
         },
         {
+          "question": "Who is Adaeze?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "company_overview.md",
+            "suppliers.md",
+            "sales_q1_2026.csv",
+            "suppliers.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Who is the Operations Director?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "returns_and_warranty.md",
+            "company_overview.md",
+            "suppliers.md",
+            "staff_handbook.md"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "Who are the founders?",
+          "expected": "company_overview.md",
+          "seen": [
+            "company_overview.md",
+            "suppliers.md",
+            "company_overview.md",
+            "suppliers.md",
+            "sales_q1_2026.csv"
+          ],
+          "hit": true,
+          "hitAt1": true,
+          "searchedFor": null
+        },
+        {
+          "question": "What is the RC number?",
+          "expected": "company_overview.md",
+          "seen": [
+            "staff_handbook.md",
+            "suppliers.md",
+            "suppliers.md",
+            "returns_and_warranty.md",
+            "company_overview.md"
+          ],
+          "hit": true,
+          "hitAt1": false,
+          "searchedFor": null
+        },
+        {
           "question": "Where is the registered office?",
           "expected": "company_overview.md",
           "seen": [
             "company_overview.md",
             "company_overview.md",
             "company_overview.md",
-            "staff_handbook.md",
-            "returns_and_warranty.md"
+            "sales_q1_2026.csv",
+            "sales_q1_2026.csv"
           ],
           "hit": true,
           "hitAt1": true,
@@ -285,10 +282,10 @@
           "expected": "staff_handbook.md",
           "seen": [
             "staff_handbook.md",
+            "company_overview.md",
             "staff_handbook.md",
-            "company_overview.md",
-            "company_overview.md",
-            "returns_and_warranty.md"
+            "staff_handbook.md",
+            "staff_handbook.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -301,8 +298,8 @@
             "suppliers.md",
             "suppliers.md",
             "suppliers.md",
-            "company_overview.md",
-            "company_overview.md"
+            "suppliers.md",
+            "suppliers.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -313,12 +310,12 @@
           "expected": "staff_handbook.md",
           "seen": [
             "company_overview.md",
-            "returns_and_warranty.md",
-            "returns_and_warranty.md",
-            "returns_and_warranty.md",
+            "company_overview.md",
+            "staff_handbook.md",
+            "company_overview.md",
             "suppliers.md"
           ],
-          "hit": false,
+          "hit": true,
           "hitAt1": false,
           "searchedFor": null
         },
@@ -328,8 +325,8 @@
           "seen": [
             "returns_and_warranty.md",
             "returns_and_warranty.md",
-            "suppliers.md",
             "returns_and_warranty.md",
+            "suppliers.md",
             "suppliers.md"
           ],
           "hit": true,
@@ -342,8 +339,8 @@
           "seen": [
             "staff_handbook.md",
             "staff_handbook.md",
+            "staff_handbook.md",
             "returns_and_warranty.md",
-            "company_overview.md",
             "returns_and_warranty.md"
           ],
           "hit": true,
@@ -355,131 +352,181 @@
         {
           "question": "Hello",
           "clean": false,
-          "topScore": 0.19202888011932373
+          "topScore": 0.19707483053207397
         },
         {
           "question": "hi there",
           "clean": false,
-          "topScore": 0.22296077013015747
+          "topScore": 0.19755315780639648
         },
         {
           "question": "thanks!",
           "clean": false,
-          "topScore": 0.1869063377380371
+          "topScore": 0.24988627433776855
         },
         {
           "question": "how are you doing today?",
           "clean": false,
-          "topScore": 0.17008137702941895
+          "topScore": 0.18126535415649414
         },
         {
           "question": "What is the capital of France?",
           "clean": false,
-          "topScore": 0.14847004413604736
+          "topScore": 0.20691287517547607
         },
         {
           "question": "Write me a haiku about rain",
           "clean": false,
-          "topScore": 0.26117265224456787
+          "topScore": 0.23443496227264404
         },
         {
           "question": "who won the world cup in 2018",
           "clean": false,
-          "topScore": 0.08138382434844971
+          "topScore": 0.1379549503326416
         },
         {
           "question": "explain recursion to me",
           "clean": false,
-          "topScore": 0.14103108644485474
+          "topScore": 0.18043798208236694
         },
         {
           "question": "good morning",
           "clean": false,
-          "topScore": 0.14807915687561035
+          "topScore": 0.15200161933898926
         },
         {
           "question": "ok",
           "clean": false,
-          "topScore": 0.19637340307235718
+          "topScore": 0.20537549257278442
         },
         {
           "question": "Who is Cristiano Ronaldo?",
           "clean": false,
-          "topScore": 0.100730299949646
+          "topScore": 0.16241878271102905
         },
         {
           "question": "Who is Barack Obama?",
           "clean": false,
-          "topScore": 0.10915040969848633
+          "topScore": 0.15016508102416992
         }
       ],
-      "arithmetic": [
-        {
-          "question": "How much was Stridewell's revenue in ngn in january 2026?",
-          "truth": 71882000,
-          "correct": false,
-          "computed": false,
-          "answer": "I’m sorry, but none of the excerpts you supplied contain a revenue figure for Stridewell Footwear in January 2026. The documents cover company structure, headcount, locations, supplier terms and return policy, but they do not provide monthly or quarterly sales data. If you have another source that lists the January 2026 revenue, I’d be happy to help interpret it."
-        },
+      "questions": [
         {
           "question": "What was our total revenue in Q1 2026?",
-          "truth": 204740500,
-          "correct": false,
+          "fixedBy": [
+            "Tool calling"
+          ],
+          "passed": false,
+          "grounded": true,
           "computed": false,
-          "answer": "I’m sorry, but I don’t have any information on the company’s revenue figures for Q1 2026 in the excerpts provided."
+          "answer": "I’m sorry, but none of the excerpts you shared include any figures or statements about the company’s total revenue for Q1 2026. Without that data, I can’t calculate or provide an accurate figure. If you have a source that lists the sales numbers for that period, feel free to share it and I’ll be happy to help compute the total revenue."
         },
         {
-          "question": "How many units were sold in February 2026?",
-          "truth": 1374,
-          "correct": false,
+          "question": "What was the total revenue at Wuse 2 Abuja in January 2026?",
+          "fixedBy": [
+            "Tool calling"
+          ],
+          "passed": false,
+          "grounded": true,
           "computed": false,
-          "answer": "I’m sorry, but the excerpts you shared don’t contain any sales figures for February 2026, so I can’t determine how many units were sold that month."
+          "answer": "**Total revenue at Wuse 2 Abuja – January 2026**\n\n| Week starting | Location      | Product line | Revenue (NGN) |\n|---------------|---------------|--------------|---------------|\n| 2026‑01‑05    | Wuse 2 Abuja  | Everyday     | **682,000**   |\n\n*The only January entry for Wuse 2 Abuja that appears in the supplied excerpts is the week starting 5 January 2026. It shows revenue of 682 000 NGN from the “Everyday” product line. No other January rows for this location are present in the provided data, so based on the available information the total reported revenue for Wuse 2 Abuja in January 2026 is **682 000 NGN**.*"
         },
         {
-          "question": "What was the total revenue for the Heritage line in Q1 2026?",
-          "truth": 25173500,
-          "correct": false,
+          "question": "Which location sold the most units in March 2026?",
+          "fixedBy": [
+            "Tool calling"
+          ],
+          "passed": false,
+          "grounded": true,
           "computed": false,
-          "answer": "I’m sorry, but none of the excerpts you provided contain any figures or statements about the Heritage line’s sales volume or revenue for Q1 2026. The documents describe pricing ranges, supplier details, and return policies, but they do not report actual sales numbers or revenue totals. Therefore, I can’t provide a total revenue figure from the information available."
+          "answer": "I’m sorry, but none of the excerpts you shared contain sales figures for March 2026, so I can’t determine which location sold the most units from the information given."
         },
         {
-          "question": "How many units were returned in March 2026?",
-          "truth": 35,
-          "correct": false,
+          "question": "How much did Ikeja make?",
+          "fixedBy": [
+            "Fine tune prompts",
+            "Tool calling"
+          ],
+          "passed": false,
+          "grounded": true,
           "computed": false,
-          "answer": "I’m sorry, but the excerpts you provided don’t include any specific figures for how many units were returned in March 2026. None of the policy or operational documents contain a monthly return count, so I can’t give an exact number based on the information available."
+          "answer": "I’m sorry, but I don’t have any information in the excerpts you shared about a person or entity named “Ikeja” or how much they earned. Could you provide more details or clarify who or what Ikeja refers to?"
         },
         {
-          "question": "What was the total revenue at Ikeja City Mall in February 2026?",
-          "truth": 15787500,
-          "correct": false,
+          "question": "Who is Cristiano Ronaldo?",
+          "fixedBy": [
+            "Relevance filtering",
+            "Fine tune prompts"
+          ],
+          "passed": false,
+          "grounded": true,
           "computed": false,
-          "answer": "I’m sorry, but none of the excerpts you supplied contain any sales records for February 2026 at Ikeja City Mall.  \nThe data that is available in **sales_q1_2026.csv** (chunks 0 and 10) only covers:\n\n* Week‑starting dates in early January 2026 (e.g., 2026‑01‑05, 2026‑01‑12) – see chunk 5.  \n* A single date in late March 2026 (2026‑03‑23) – see chunk 4.\n\nBecause February is not represented in the provided data, I can’t calculate or report the total revenue for that month and location. If you have additional sales records for February 2026, please share them so I can compute the figure."
+          "answer": "I’m sorry, but none of the excerpts you shared mention Cristiano Ronaldo, so I can’t provide an answer based on those documents."
+        },
+        {
+          "question": "What is the capital of France?",
+          "fixedBy": [
+            "Relevance filtering",
+            "Fine tune prompts"
+          ],
+          "passed": false,
+          "grounded": true,
+          "computed": false,
+          "answer": "I’m sorry, but none of the provided excerpts contain information about France or its capital."
+        },
+        {
+          "question": "How long is paternity leave?",
+          "fixedBy": [],
+          "passed": true,
+          "grounded": true,
+          "computed": false,
+          "answer": "Paternity leave is **two weeks** and it is fully paid."
+        },
+        {
+          "question": "Who is the primary contact at Aba Leatherworks?",
+          "fixedBy": [],
+          "passed": true,
+          "grounded": true,
+          "computed": false,
+          "answer": "The primary contact at Aba Leatherworks Cooperative is **Mr. Emeka Okafor**【1】."
+        },
+        {
+          "question": "As a Stridewell employee, what discount would I get on a pair of Formal shoes that costs 100,000 naira?",
+          "fixedBy": [],
+          "passed": true,
+          "grounded": true,
+          "computed": false,
+          "answer": "As a Stridewell employee you’re entitled to the **40 % staff discount** on Formal shoes.  \nFor a pair that retails at ₦100,000:\n\n- Discount amount: **₦40,000** (40 %)\n- Price after discount: **₦60,000**\n\nSo you would pay ₦60,000 for the shoe."
+        },
+        {
+          "question": "Hello",
+          "fixedBy": [],
+          "passed": true,
+          "grounded": true,
+          "computed": false,
+          "answer": "Hi there! 👋 How can I assist you today?"
         }
       ]
     },
     {
       "recipe": "optimized",
       "optimizations": {
-        "Small chunks": true,
-        "CSV rows as prose": true,
+        "Fine tune prompts": true,
         "Query condensing": true,
         "Per-file cap": true,
-        "Relevance Filtering": true,
-        "Exact Table Calculations": true,
-        "Strict Data Grounding": true,
-        "Never-invent prompt": true
+        "Relevance filtering": true,
+        "Tool calling": true
       },
-      "chunks": 146,
+      "chunks": 27,
       "summary": {
         "lookupHit": 23,
         "lookupHitAt1": 20,
         "lookupTotal": 23,
         "smallTalkClean": 11,
         "smallTalkTotal": 12,
-        "arithmeticCorrect": 6,
-        "arithmeticTotal": 6,
-        "medianPrepareMs": 38
+        "questionsPassed": 10,
+        "questionsTotal": 10,
+        "medianPrepareMs": 25
       },
       "lookups": [
         {
@@ -490,7 +537,7 @@
             "returns_and_warranty.md",
             "suppliers.md",
             "company_overview.md",
-            "suppliers.md"
+            "company_overview.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -501,10 +548,10 @@
           "expected": "returns_and_warranty.md",
           "seen": [
             "returns_and_warranty.md",
+            "suppliers.md",
+            "suppliers.md",
             "returns_and_warranty.md",
-            "staff_handbook.md",
-            "staff_handbook.md",
-            "suppliers.md"
+            "staff_handbook.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -530,9 +577,9 @@
           "seen": [
             "company_overview.md",
             "staff_handbook.md",
-            "company_overview.md",
-            "sales_q1_2026.csv",
-            "sales_q1_2026.csv"
+            "staff_handbook.md",
+            "suppliers.md",
+            "suppliers.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -543,9 +590,9 @@
           "expected": "company_overview.md",
           "seen": [
             "company_overview.md",
-            "sales_q1_2026.csv",
             "company_overview.md",
-            "sales_q1_2026.csv",
+            "suppliers.md",
+            "staff_handbook.md",
             "suppliers.md"
           ],
           "hit": true,
@@ -558,9 +605,9 @@
           "seen": [
             "company_overview.md",
             "company_overview.md",
-            "sales_q1_2026.csv",
-            "sales_q1_2026.csv",
-            "suppliers.md"
+            "suppliers.md",
+            "suppliers.md",
+            "staff_handbook.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -571,9 +618,9 @@
           "expected": "suppliers.md",
           "seen": [
             "suppliers.md",
-            "suppliers.md",
             "company_overview.md",
             "returns_and_warranty.md",
+            "suppliers.md",
             "returns_and_warranty.md"
           ],
           "hit": true,
@@ -586,8 +633,8 @@
           "seen": [
             "suppliers.md",
             "suppliers.md",
-            "returns_and_warranty.md",
             "company_overview.md",
+            "returns_and_warranty.md",
             "returns_and_warranty.md"
           ],
           "hit": true,
@@ -601,8 +648,8 @@
             "suppliers.md",
             "suppliers.md",
             "returns_and_warranty.md",
-            "returns_and_warranty.md",
-            "company_overview.md"
+            "company_overview.md",
+            "returns_and_warranty.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -613,10 +660,10 @@
           "expected": "staff_handbook.md",
           "seen": [
             "staff_handbook.md",
-            "staff_handbook.md",
             "company_overview.md",
-            "sales_q1_2026.csv",
-            "sales_q1_2026.csv"
+            "staff_handbook.md",
+            "returns_and_warranty.md",
+            "suppliers.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -626,14 +673,14 @@
           "question": "What discount do employees get on Heritage shoes?",
           "expected": "staff_handbook.md",
           "seen": [
-            "returns_and_warranty.md",
             "staff_handbook.md",
-            "suppliers.md",
             "returns_and_warranty.md",
-            "staff_handbook.md"
+            "returns_and_warranty.md",
+            "suppliers.md",
+            "suppliers.md"
           ],
           "hit": true,
-          "hitAt1": false,
+          "hitAt1": true,
           "searchedFor": "Heritage shoes employee discount"
         },
         {
@@ -642,9 +689,9 @@
           "seen": [
             "staff_handbook.md",
             "staff_handbook.md",
-            "returns_and_warranty.md",
-            "sales_q1_2026.csv",
-            "sales_q1_2026.csv"
+            "suppliers.md",
+            "suppliers.md",
+            "returns_and_warranty.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -654,14 +701,14 @@
           "question": "Who is Tunde?",
           "expected": "company_overview.md",
           "seen": [
+            "suppliers.md",
             "company_overview.md",
             "company_overview.md",
-            "suppliers.md",
-            "suppliers.md",
-            "sales_q1_2026.csv"
+            "staff_handbook.md",
+            "suppliers.md"
           ],
           "hit": true,
-          "hitAt1": true,
+          "hitAt1": false,
           "searchedFor": null
         },
         {
@@ -671,8 +718,8 @@
             "company_overview.md",
             "company_overview.md",
             "suppliers.md",
-            "sales_q1_2026.csv",
-            "sales_q1_2026.csv"
+            "suppliers.md",
+            "staff_handbook.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -683,10 +730,10 @@
           "expected": "company_overview.md",
           "seen": [
             "company_overview.md",
+            "returns_and_warranty.md",
             "company_overview.md",
             "suppliers.md",
-            "staff_handbook.md",
-            "suppliers.md"
+            "staff_handbook.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -698,9 +745,9 @@
           "seen": [
             "company_overview.md",
             "suppliers.md",
-            "suppliers.md",
             "company_overview.md",
-            "sales_q1_2026.csv"
+            "suppliers.md",
+            "staff_handbook.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -710,10 +757,10 @@
           "question": "What is the RC number?",
           "expected": "company_overview.md",
           "seen": [
-            "sales_q1_2026.csv",
-            "sales_q1_2026.csv",
+            "staff_handbook.md",
             "suppliers.md",
             "suppliers.md",
+            "returns_and_warranty.md",
             "company_overview.md"
           ],
           "hit": true,
@@ -726,8 +773,8 @@
           "seen": [
             "company_overview.md",
             "company_overview.md",
-            "sales_q1_2026.csv",
-            "sales_q1_2026.csv",
+            "staff_handbook.md",
+            "returns_and_warranty.md",
             "staff_handbook.md"
           ],
           "hit": true,
@@ -739,10 +786,10 @@
           "expected": "staff_handbook.md",
           "seen": [
             "staff_handbook.md",
+            "company_overview.md",
             "staff_handbook.md",
-            "sales_q1_2026.csv",
-            "sales_q1_2026.csv",
-            "company_overview.md"
+            "returns_and_warranty.md",
+            "returns_and_warranty.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -754,9 +801,9 @@
           "seen": [
             "suppliers.md",
             "suppliers.md",
-            "sales_q1_2026.csv",
-            "sales_q1_2026.csv",
-            "company_overview.md"
+            "company_overview.md",
+            "company_overview.md",
+            "returns_and_warranty.md"
           ],
           "hit": true,
           "hitAt1": true,
@@ -767,10 +814,10 @@
           "expected": "staff_handbook.md",
           "seen": [
             "company_overview.md",
-            "returns_and_warranty.md",
-            "returns_and_warranty.md",
             "company_overview.md",
-            "staff_handbook.md"
+            "staff_handbook.md",
+            "returns_and_warranty.md",
+            "returns_and_warranty.md"
           ],
           "hit": true,
           "hitAt1": false,
@@ -784,11 +831,11 @@
             "returns_and_warranty.md",
             "suppliers.md",
             "suppliers.md",
-            "company_overview.md"
+            "staff_handbook.md"
           ],
           "hit": true,
           "hitAt1": true,
-          "searchedFor": "Heritage shoes return policy fit issue"
+          "searchedFor": "Heritage shoes return policy for fitting issues"
         },
         {
           "question": "I am thinking of applying — how much time off would I actually get in my first year?",
@@ -797,118 +844,171 @@
             "staff_handbook.md",
             "staff_handbook.md",
             "company_overview.md",
-            "sales_q1_2026.csv",
-            "sales_q1_2026.csv"
+            "returns_and_warranty.md",
+            "returns_and_warranty.md"
           ],
           "hit": true,
           "hitAt1": true,
-          "searchedFor": "new employee first year leave entitlement"
+          "searchedFor": "first year employee leave entitlement"
         }
       ],
       "smallTalk": [
         {
           "question": "Hello",
           "clean": true,
-          "topScore": 0.18626391887664795
+          "topScore": 0.15199130773544312
         },
         {
           "question": "hi there",
           "clean": true,
-          "topScore": 0.190204918384552
+          "topScore": 0.16819888353347778
         },
         {
           "question": "thanks!",
-          "clean": true,
-          "topScore": 0.19153988361358643
+          "clean": false,
+          "topScore": 0.24988627433776855
         },
         {
           "question": "how are you doing today?",
-          "clean": false,
-          "topScore": 0.2559584379196167
+          "clean": true,
+          "topScore": 0.17321819067001343
         },
         {
           "question": "What is the capital of France?",
           "clean": true,
-          "topScore": 0.13335132598876953
+          "topScore": 0.11446189880371094
         },
         {
           "question": "Write me a haiku about rain",
           "clean": true,
-          "topScore": 0.12248373031616211
+          "topScore": 0.09996563196182251
         },
         {
           "question": "who won the world cup in 2018",
           "clean": true,
-          "topScore": 0.11656862497329712
+          "topScore": 0.1379549503326416
         },
         {
           "question": "explain recursion to me",
           "clean": true,
-          "topScore": 0.14103108644485474
+          "topScore": 0.18043798208236694
         },
         {
           "question": "good morning",
           "clean": true,
-          "topScore": 0.19508516788482666
+          "topScore": 0.15200161933898926
         },
         {
           "question": "ok",
           "clean": true,
-          "topScore": 0.21529853343963623
+          "topScore": 0.1378656029701233
         },
         {
           "question": "Who is Cristiano Ronaldo?",
           "clean": true,
-          "topScore": 0.15029627084732056
+          "topScore": 0.16241878271102905
         },
         {
           "question": "Who is Barack Obama?",
           "clean": true,
-          "topScore": 0.1572684645652771
+          "topScore": 0.15016508102416992
         }
       ],
-      "arithmetic": [
-        {
-          "question": "How much was Stridewell's revenue in ngn in january 2026?",
-          "truth": 71882000,
-          "correct": true,
-          "computed": true,
-          "answer": "Stridewell’s revenue in NGN for **January 2026** was **71,882,000**.\n\nThis figure comes from a calculation performed on the full `sales_q1_2026.csv` dataset: it aggregates the `revenue_ngn` values for all rows that fall within January 2026. The computation used **80 matching rows out of the total 240 rows** in that file."
-        },
+      "questions": [
         {
           "question": "What was our total revenue in Q1 2026?",
-          "truth": 204740500,
-          "correct": true,
+          "fixedBy": [
+            "Tool calling"
+          ],
+          "passed": true,
+          "grounded": true,
           "computed": true,
-          "answer": "**Total revenue for Q1 2026:** ₦204,740,500  \n- **Period covered:** First quarter of 2026 (Q1 2026)  \n- **Data source & filter:** Calculated over all 240 matching rows in `sales_q1_2026.csv` (the full dataset)."
+          "answer": "The total revenue for Q1 2026 (January 5 – March 23, 2026) was **₦204,740,500**. This figure is calculated from all 240 rows in the `sales_q1_2026.csv` table."
         },
         {
-          "question": "How many units were sold in February 2026?",
-          "truth": 1374,
-          "correct": true,
+          "question": "What was the total revenue at Wuse 2 Abuja in January 2026?",
+          "fixedBy": [
+            "Tool calling"
+          ],
+          "passed": true,
+          "grounded": true,
           "computed": true,
-          "answer": "**Total units_sold in February 2026:** **1,374**\n\n- Computed over **80 matching row(s)** out of 240 in `sales_q1_2026.csv`."
+          "answer": "The total revenue generated at **Wuse 2 Abuja** during January 2026 was **₦12,819,000**.  \nThis figure is based on 16 sales records from the *sales_q1_2026.csv* table that fall within the date range 2026‑01‑01 to 2026‑01‑31 for that location."
         },
         {
-          "question": "What was the total revenue for the Heritage line in Q1 2026?",
-          "truth": 25173500,
-          "correct": true,
+          "question": "Which location sold the most units in March 2026?",
+          "fixedBy": [
+            "Tool calling"
+          ],
+          "passed": true,
+          "grounded": true,
           "computed": true,
-          "answer": "The total revenue for the Heritage line in Q1 2026 was **₦25,173,500**.  \nThis figure is based on 60 matching rows out of 240 in *sales_q1_2026.csv* and covers the entire first quarter of 2026."
+          "answer": "The **Victoria Island flagship** store sold the most units in March 2026, with a total of **453 units** (the other locations were: Ikeja City Mall – 334, Online – 311, Wuse 2 Abuja – 265, and Port Harcourt – 135). This figure comes from the sales data for that month."
         },
         {
-          "question": "How many units were returned in March 2026?",
-          "truth": 35,
-          "correct": true,
+          "question": "How much did Ikeja make?",
+          "fixedBy": [
+            "Fine tune prompts",
+            "Tool calling"
+          ],
+          "passed": true,
+          "grounded": true,
           "computed": true,
-          "answer": "The total number of units returned in March 2026 is **35**.\n\nThis figure was computed over **80 matching rows** out of the 240 rows in `sales_q1_2026.csv`."
+          "answer": "**Ikeja City Mall revenue (Q1 2026)**  \n- **Total:** ₦45,246,500  \n- **Rows used:** 48 out of the 240 rows in *sales_q1_2026.csv* that match the location “Ikeja City Mall.”  \n\nThis figure comes directly from the sales data for the first quarter of 2026."
         },
         {
-          "question": "What was the total revenue at Ikeja City Mall in February 2026?",
-          "truth": 15787500,
-          "correct": true,
-          "computed": true,
-          "answer": "The total revenue for Ikeja City Mall in February 2026 was **NGN 15,787,500**.  \nThis figure is based on **16 matching rows** (out of 240) from the `sales_q1_2026.csv` dataset and covers all sales recorded at that location during the month of February 2026."
+          "question": "Who is Cristiano Ronaldo?",
+          "fixedBy": [
+            "Relevance filtering",
+            "Fine tune prompts"
+          ],
+          "passed": true,
+          "grounded": false,
+          "computed": false,
+          "answer": "Cristiano Ronaldo dos Santos Avê, commonly known as **Cristiano Ronaldo**, is a Portuguese professional footballer widely regarded as one of the greatest players in the history of the sport. Born on 5 February 1985 in Funchal, Madeira, he began his senior career with Sporting CP before moving to Manchester United (2003–2009), Real Madrid (2009–2018), Juventus (2018–2021), and returning to Manchester United in 2021. In 2022 he joined Al‑Nassr FC in Saudi Arabia.\n\nKey highlights of his career:\n\n- **Position**: Primarily a forward, known for his speed, technical skill, powerful shooting, and aerial ability.\n- **Club Success**: Won numerous league titles (Premier League, La Liga, Serie A), UEFA Champions League trophies, and domestic cups with each club he played for.\n- **International Career**: Captain of the Portugal national team; helped Portugal win Euro 2016 and the 2019 UEFA Nations League.\n- **Individual Awards**: Five Ballon d’Or titles (2008, 2013, 2014, 2016, 2017), multiple FIFA World Player of the Year/Best FIFA Men's Player awards, and record‑breaking goal tallies in club and international competitions.\n- **Records**: Most goals scored in UEFA Champions League history, most career goals for a single club (Real Madrid), and one of the highest‑earning athletes worldwide.\n\nOff the pitch, Ronaldo is known for his philanthropy, extensive brand endorsements, and massive social media presence. He has also launched his own fashion line, CR7, and various other business ventures."
+        },
+        {
+          "question": "What is the capital of France?",
+          "fixedBy": [
+            "Relevance filtering",
+            "Fine tune prompts"
+          ],
+          "passed": true,
+          "grounded": false,
+          "computed": false,
+          "answer": "The capital of France is Paris."
+        },
+        {
+          "question": "How long is paternity leave?",
+          "fixedBy": [],
+          "passed": true,
+          "grounded": true,
+          "computed": false,
+          "answer": "Paternity leave at Stridewell Footwear Company is **two weeks** of fully paid time off."
+        },
+        {
+          "question": "Who is the primary contact at Aba Leatherworks?",
+          "fixedBy": [],
+          "passed": true,
+          "grounded": true,
+          "computed": false,
+          "answer": "The primary contact at Aba Leatherworks Cooperative is **Mr. Emeka Okafor**【1】."
+        },
+        {
+          "question": "As a Stridewell employee, what discount would I get on a pair of Formal shoes that costs 100,000 naira?",
+          "fixedBy": [],
+          "passed": true,
+          "grounded": true,
+          "computed": false,
+          "answer": "As a Stridewell employee you’re entitled to a **40 % discount** on Formal shoes (see the staff handbook).  \nFor a pair priced at ₦100,000, that works out to:\n\n- Discount amount = 40 % × ₦100,000 = **₦40,000** off the listed price.  \n\nSo you would pay ₦60,000 for the shoe."
+        },
+        {
+          "question": "Hello",
+          "fixedBy": [],
+          "passed": true,
+          "grounded": false,
+          "computed": false,
+          "answer": "Hi there! How can I help you today?"
         }
       ]
     }
