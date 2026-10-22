@@ -83,7 +83,9 @@ class CalculateTool {
         },
         'filters': {
           'type': 'array',
-          'description': 'Keep only rows that match all of these.',
+          'description':
+              'Keep only rows that match all of these. Text columns only. '
+              'Limit dates with from and to.',
           'items': {
             'type': 'object',
             'required': ['column', 'op', 'values'],
