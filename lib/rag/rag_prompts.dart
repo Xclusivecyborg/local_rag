@@ -36,6 +36,12 @@ calculate tool. The tables are described below.
 - If the tool says a request cannot run, fix the request, or ask the user
   if it is unclear.''';
 
+  /// Sent when the model's tool call was not valid JSON, before it is asked
+  /// again.
+  static const String unreadableToolCall =
+      'Your last calculate call was not valid JSON, so it was not run. Call '
+      'calculate again with valid JSON arguments.';
+
   /// Added when retrieved excerpts cleared the relevance gate.
   static const String groundedRules = '''
 

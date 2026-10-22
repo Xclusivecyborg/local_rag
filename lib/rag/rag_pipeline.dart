@@ -262,19 +262,29 @@ class RagPipeline {
       final offerTools = calculator != null && round < maxToolRounds;
       final calls = <ToolCall>[];
       final said = StringBuffer();
-      await for (final chunk in ollama.chatStream(
-        model: chatModel,
-        messages: messages,
-        tools: offerTools ? [calculator.definition] : const [],
-      )) {
-        calls.addAll(chunk.toolCalls);
-        said.write(chunk.content ?? '');
-        final hasText =
-            (chunk.content?.isNotEmpty ?? false) ||
-            (chunk.thinking?.isNotEmpty ?? false);
-        if (hasText) {
-          yield ChatChunk(content: chunk.content, thinking: chunk.thinking);
+      try {
+        await for (final chunk in ollama.chatStream(
+          model: chatModel,
+          messages: messages,
+          tools: offerTools ? [calculator.definition] : const [],
+        )) {
+          calls.addAll(chunk.toolCalls);
+          said.write(chunk.content ?? '');
+          final hasText =
+              (chunk.content?.isNotEmpty ?? false) ||
+              (chunk.thinking?.isNotEmpty ?? false);
+          if (hasText) {
+            yield ChatChunk(content: chunk.content, thinking: chunk.thinking);
+          }
         }
+      } on OllamaException catch (e) {
+        // The model wrote a tool call Ollama could not read as JSON. Say so
+        // and let it try again, rather than failing the whole answer.
+        if (!offerTools || !e.message.contains('error parsing tool call')) {
+          rethrow;
+        }
+        messages.add(ChatMessage('system', RagPrompts.unreadableToolCall));
+        continue;
       }
       if (calls.isEmpty || calculator == null) return;
 

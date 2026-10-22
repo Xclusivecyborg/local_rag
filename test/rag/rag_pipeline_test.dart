@@ -311,6 +311,52 @@ void main() {
     }
   });
 
+  test('a tool call Ollama cannot read is retried, not fatal', () async {
+    final index = await ingest(RagRecipe.optimized);
+    var chats = 0;
+    final sent = <String>[];
+    final ollama = OllamaClient(
+      client: MockClient.streaming((request, body) async {
+        final json = jsonDecode(await body.bytesToString()) as Map;
+        if (request.url.path == '/api/embed') {
+          final input = json['input'] as List;
+          final reply = jsonEncode({
+            'embeddings': [for (final _ in input) queryVector],
+          });
+          return http.StreamedResponse(Stream.value(utf8.encode(reply)), 200);
+        }
+        sent.add(jsonEncode(json['messages']));
+        final reply = chats++ == 0
+            // What Ollama sends when gpt-oss writes `"operator">=`.
+            ? jsonEncode({
+                'error':
+                    'error parsing tool call: raw=\'{"operator">=}\', '
+                    "err=invalid character '>' after object key",
+              })
+            : jsonEncode({
+                'message': {'content': 'Which month do you mean?'},
+                'done': true,
+              });
+        return http.StreamedResponse(Stream.value(utf8.encode(reply)), 200);
+      }),
+    );
+    final pipeline = RagPipeline(ollama, recipe: RagRecipe.optimized);
+    final prompt = await pipeline.prepare(
+      question: 'and February?',
+      chatModel: 'test-chat',
+      embeddingModel: embedModel,
+      index: index.store,
+      tables: index.tables,
+    );
+    final answer = await pipeline
+        .generate('test-chat', prompt)
+        .map((c) => c.content ?? '')
+        .join();
+
+    expect(answer, 'Which month do you mean?');
+    expect(sent.last, contains('was not valid JSON'));
+  });
+
   test('optimized asks for missing details; naive does not', () {
     const rule = 'Ask for the missing detail';
     bool asks({required bool grounded}) => RagPrompts.system(
