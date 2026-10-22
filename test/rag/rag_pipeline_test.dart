@@ -10,6 +10,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:local_rag/rag/normal_prompt.dart';
+import 'package:local_rag/rag/optimized_prompt.dart';
 import 'package:local_rag/rag/rag_pipeline.dart';
 import 'package:local_rag/rag/rag_prompts.dart';
 import 'package:local_rag/rag/rag_recipe.dart';
@@ -130,6 +132,25 @@ void main() {
     final hits = index.store.search(docVector, k: 10);
     expect(hits.where((h) => h.chunk.source == 'sales.csv'), isEmpty);
     expect(hits.where((h) => h.chunk.source == 'returns.md'), isNotEmpty);
+  });
+
+  test('both recipes chunk each markdown section on its own', () async {
+    File('${kb.path}/handbook.md').writeAsStringSync(
+      '## Leave\n\nTwenty days a year.\n\n'
+      '## Staff discount\n\nAll employees receive a 40% discount.',
+    );
+    for (final recipe in [RagRecipe.normal, RagRecipe.optimized]) {
+      final index = await ingest(recipe);
+      final handbook = [
+        for (final h in index.store.search(docVector, k: 20))
+          if (h.chunk.source == 'handbook.md') h.chunk,
+      ];
+      expect(handbook, hasLength(2), reason: recipe.name);
+      final discount = handbook.firstWhere((c) => c.text.contains('40%'));
+      expect(discount.text, isNot(contains('Twenty days')));
+      final file = File('${kb.path}/handbook.md').readAsStringSync();
+      expect(file.substring(discount.start), startsWith('## Staff discount'));
+    }
   });
 
   test('normal pastes excerpts into every question, even "Hello"', () async {
@@ -305,7 +326,7 @@ void main() {
       );
       expect(
         prompt.messages.first.content.contains('Never invent facts'),
-        recipe.guardedPrompt,
+        recipe.fineTunedPrompt,
         reason: recipe.name,
       );
     }
@@ -359,36 +380,33 @@ void main() {
 
   test('optimized asks for missing details; normal does not', () {
     const rule = 'Ask for the missing detail';
-    bool asks({required bool grounded}) => RagPrompts.system(
-      grounded: grounded,
-      strictGrounding: true,
-    ).contains(rule);
+    bool asks({required bool grounded}) =>
+        RagPrompts.system(grounded: grounded).contains(rule);
 
     expect(asks(grounded: true), isTrue);
     expect(asks(grounded: false), isTrue);
     expect(
-      RagPrompts.system(
-        grounded: true,
-        strictGrounding: false,
-        guarded: false,
-      ).contains(rule),
+      RagPrompts.system(grounded: true, fineTuned: false).contains(rule),
       isFalse,
       reason: 'normal',
+    );
+  });
+
+  test('normal gets the tutorial prompt alone, even with excerpts', () {
+    expect(
+      RagPrompts.system(grounded: true, fineTuned: false),
+      NormalPrompt.system,
     );
   });
 
   test('the tool rules and tables come last, only with tables', () {
     const tables = 'TABLES YOU CAN CALCULATE OVER';
     for (final grounded in [true, false]) {
-      final prompt = RagPrompts.system(
-        grounded: grounded,
-        strictGrounding: true,
-        tables: tables,
-      );
-      expect(prompt, endsWith('${RagPrompts.toolRules}\n\n$tables'));
+      final prompt = RagPrompts.system(grounded: grounded, tables: tables);
+      expect(prompt, endsWith('${OptimizedPrompt.toolRules}\n\n$tables'));
     }
     expect(
-      RagPrompts.system(grounded: true, strictGrounding: true),
+      RagPrompts.system(grounded: true),
       isNot(contains('calculate tool')),
     );
   });

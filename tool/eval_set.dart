@@ -70,18 +70,103 @@ const Map<String, String> longFormEval = {
       'staff_handbook.md',
 };
 
-/// Aggregation questions over sales_q1_2026.csv -> the exact answer.
+/// A question asked end to end under both recipes, and how to tell a right
+/// answer from its text.
+class ShowcaseQuestion {
+  const ShowcaseQuestion(
+    this.question, {
+    required this.fixedBy,
+    required this.passIf,
+  });
+
+  final String question;
+
+  /// The optimizations that make the difference. Empty for a control: a
+  /// question both recipes should get right.
+  final List<String> fixedBy;
+
+  /// The answer passes if it contains any of these, ignoring case, with the
+  /// ₦ sign and the separators in numbers removed.
+  final List<String> passIf;
+
+  bool passes(String answer) {
+    final text = answer
+        .toLowerCase()
+        .replaceAll(RegExp('[\u00a0\u2009\u202f]'), ' ')
+        .replaceAll('₦', '')
+        .replaceAllMapped(RegExp(r'(\d)[, ](?=\d{3})'), (m) => m[1]!);
+    return passIf.any((p) => text.contains(p.toLowerCase()));
+  }
+}
+
+/// Questions the normal recipe gets wrong and the optimized one gets right,
+/// found by asking each under both with gpt-oss, plus four controls.
 ///
-/// Ground truth computed with awk straight from the CSV, not by the app,
-/// so a bug in the calculation cannot also hide in the expected value.
-const Map<String, num> arithmeticEval = {
-  "How much was Stridewell's revenue in ngn in january 2026?": 71882000,
-  'What was our total revenue in Q1 2026?': 204740500,
-  'How many units were sold in February 2026?': 1374,
-  'What was the total revenue for the Heritage line in Q1 2026?': 25173500,
-  'How many units were returned in March 2026?': 35,
-  'What was the total revenue at Ikeja City Mall in February 2026?': 15787500,
-};
+/// Totals were computed with awk straight from sales_q1_2026.csv, not by the
+/// app, so a bug in the calculation cannot also hide in the expected value.
+/// No question was found where query condensing or the per-file cap is what
+/// makes the difference on this knowledge base.
+const List<ShowcaseQuestion> showcase = [
+  ShowcaseQuestion(
+    'What was our total revenue in Q1 2026?',
+    fixedBy: ['Tool calling'],
+    passIf: ['204740500'],
+  ),
+  ShowcaseQuestion(
+    'What was the total revenue at Wuse 2 Abuja in January 2026?',
+    fixedBy: ['Tool calling'],
+    passIf: ['12819000'],
+  ),
+  ShowcaseQuestion(
+    'Which location sold the most units in March 2026?',
+    fixedBy: ['Tool calling'],
+    passIf: ['453'],
+  ),
+  ShowcaseQuestion(
+    'How much did Ikeja make?',
+    // Asking which period is right; so is the total over the only quarter
+    // the data has.
+    fixedBy: ['Fine tune prompts', 'Tool calling'],
+    passIf: [
+      'period',
+      'time frame',
+      'timeframe',
+      'which month',
+      'which year',
+      '45246500',
+    ],
+  ),
+  ShowcaseQuestion(
+    'Who is Cristiano Ronaldo?',
+    fixedBy: ['Relevance filtering', 'Fine tune prompts'],
+    passIf: ['football', 'portug'],
+  ),
+  ShowcaseQuestion(
+    'What is the capital of France?',
+    fixedBy: ['Relevance filtering', 'Fine tune prompts'],
+    passIf: ['paris'],
+  ),
+  // Controls: normal RAG is not useless.
+  ShowcaseQuestion(
+    'How long is paternity leave?',
+    fixedBy: [],
+    passIf: ['two weeks', 'two (2) weeks', '2 weeks'],
+  ),
+  ShowcaseQuestion(
+    'Who is the primary contact at Aba Leatherworks?',
+    fixedBy: [],
+    passIf: ['emeka okafor'],
+  ),
+  // Split at headings in both recipes, so the discount section is found by
+  // either.
+  ShowcaseQuestion(
+    'As a Stridewell employee, what discount would I get on a pair of Formal '
+    'shoes that costs 100,000 naira?',
+    fixedBy: [],
+    passIf: ['40%', '40 %', '40000', '60000'],
+  ),
+  ShowcaseQuestion('Hello', fixedBy: [], passIf: ['hi', 'hello']),
+];
 
 /// The twelve short questions the chunk-size comparison was measured with.
 ///

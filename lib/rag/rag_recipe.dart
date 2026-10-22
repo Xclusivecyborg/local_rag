@@ -10,13 +10,11 @@ class RagRecipe {
     required this.name,
     this.chunkSize = 600,
     this.chunkOverlap = 200,
-    this.csvAsProse = true,
     this.useToolCalling = true,
     this.condenseQueries = true,
     this.maxChunksPerSource = 2,
     this.relevanceGate = true,
-    this.strictGrounding = true,
-    this.guardedPrompt = true,
+    this.fineTunedPrompt = true,
     this.topK = 5,
   });
 
@@ -25,17 +23,12 @@ class RagRecipe {
 
   // ---- Indexing --------------------------------------------------------
 
-  /// Maximum characters per chunk. Smaller chunks are about fewer things, so
-  /// they match short questions better: 6 of 12 retrieve at 1200, 10 of 12
-  /// at 600.
+  /// Maximum characters per chunk, the same in both recipes. Size is a
+  /// trade-off rather than a fix: 600 retrieves more short questions than
+  /// 1200 (10 of 12 against 6 of 12), but a 1200-character chunk sometimes
+  /// holds two sections a question needs together.
   final int chunkSize;
   final int chunkOverlap;
-
-  /// Rewrite CSV rows as labelled sentences before embedding.
-  /// `Region: Lagos. Units sold: 48.` gives an embedder something to match;
-  /// `2026-01-05,Lagos,Everyday,48` does not. Has no effect with
-  /// [useToolCalling], which does not embed CSV files at all.
-  final bool csvAsProse;
 
   // ---- Answering -------------------------------------------------------
 
@@ -55,13 +48,12 @@ class RagRecipe {
   /// measured threshold, so "Hello" does not pull in the returns policy.
   final bool relevanceGate;
 
-  /// Tell the model not to estimate totals from a partial set of excerpts.
-  final bool strictGrounding;
-
   /// Use the app's system prompt, which tells the model never to invent
-  /// company facts. Off, it gets the tutorial's "answer using the excerpts",
-  /// and will confidently add up whatever five chunks it was handed.
-  final bool guardedPrompt;
+  /// company facts, to ask for a detail a question leaves out, and not to
+  /// estimate totals from a partial set of excerpts. Off, it gets the
+  /// tutorial's "answer using the excerpts", and will confidently add up
+  /// whatever five chunks it was handed.
+  final bool fineTunedPrompt;
 
   /// Chunks retrieved per question.
   final int topK;
@@ -69,14 +61,11 @@ class RagRecipe {
   /// The tutorial pipeline, with every optimization off.
   static const RagRecipe normal = RagRecipe(
     name: 'normal',
-    chunkSize: 1200,
-    csvAsProse: false,
     useToolCalling: false,
     condenseQueries: false,
     maxChunksPerSource: null,
     relevanceGate: false,
-    strictGrounding: false,
-    guardedPrompt: false,
+    fineTunedPrompt: false,
   );
 
   /// Every optimization on.
@@ -84,9 +73,10 @@ class RagRecipe {
 
   /// Folder this recipe's index lives in, inside Application Support.
   ///
-  /// Each recipe chunks differently, so each needs its own index. Keeping
-  /// them apart means switching recipe never forces a re-index. [optimized]
-  /// keeps the original `objectbox` folder, so an existing index still loads.
+  /// Normal embeds the CSV rows and optimized does not, so each needs its
+  /// own index. Keeping them apart means switching recipe never forces a
+  /// re-index. [optimized] keeps the original `objectbox` folder, so an
+  /// existing index still loads.
   String get indexFolder =>
       name == 'optimized' ? 'objectbox' : 'objectbox-$name';
 
@@ -94,24 +84,16 @@ class RagRecipe {
   String get tablesFile =>
       name == 'optimized' ? 'tables.json' : 'tables-$name.json';
 
-  /// Every optimization, grouped by the stage it improves, for the sidebar
-  /// and the eval report.
+  /// Every optimization, in the order the talk introduces them, for the
+  /// sidebar (which groups them by stage) and the eval report.
   List<Optimization> get optimizations => [
     Optimization(
-      'Small chunks',
-      'Cut files into smaller pieces',
-      RagStage.indexing,
-      enabled: chunkSize <= 600,
-      setting: '$chunkSize chars',
+      'Fine tune prompts',
+      'Never make up company facts, and ask when a question leaves out '
+          'a detail',
+      RagStage.answering,
+      enabled: fineTunedPrompt,
     ),
-    // Tool calling keeps CSV files out of the index, so this does nothing.
-    if (!useToolCalling)
-      Optimization(
-        'CSV rows as prose',
-        'Turn spreadsheet rows into sentences',
-        RagStage.indexing,
-        enabled: csvAsProse,
-      ),
     Optimization(
       'Query condensing',
       'Shorten and optimize long questions first',
@@ -129,38 +111,24 @@ class RagRecipe {
           : '$maxChunksPerSource per file',
     ),
     Optimization(
-      'Relevance Filtering',
+      'Relevance filtering',
       'Use only documents relevant to the question, so small talk gets a '
           'natural response.',
       RagStage.retrieval,
       enabled: relevanceGate,
     ),
     Optimization(
-      'Use Tool Calling',
+      'Tool calling',
       'When you have data that needs to be computed, like CSV tables, '
           'don\'t embed it. Use tool calling to fetch data from it instead.',
       RagStage.answering,
       enabled: useToolCalling,
-    ),
-    Optimization(
-      'Strict Data Grounding',
-      'Say “I don’t know” when the available data is insufficient rather '
-          'than guessing or estimating.',
-      RagStage.answering,
-      enabled: strictGrounding,
-    ),
-    Optimization(
-      'Never-invent prompt',
-      'Never make up company facts',
-      RagStage.answering,
-      enabled: guardedPrompt,
     ),
   ];
 }
 
 /// The part of the pipeline an optimization improves.
 enum RagStage {
-  indexing('Indexing'),
   retrieval('Retrieval'),
   answering('Answering');
 
@@ -187,8 +155,6 @@ class Optimization {
   final RagStage stage;
   final bool enabled;
 
-  /// The value it runs with, e.g. "600 chars", shown even when the
-  /// optimization is off if the normal value teaches something (1200 chars).
-  /// Null when there is none.
+  /// The value it runs with, e.g. "2 per file". Null when there is none.
   final String? setting;
 }

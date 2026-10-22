@@ -86,14 +86,17 @@ that are on:
 
 | Switch | normal | optimized | What it fixes |
 |---|---|---|---|
-| `chunkSize` | 1200 | 600 | short questions match small chunks (6/12 vs 10/12 retrieve) |
-| `csvAsProse` | off | (not used) | `location: Victoria Island. units_sold: 41.` embeds; a raw CSV line doesn't. Optimized doesn't embed CSVs at all, so its card leaves this out |
 | `useToolCalling` | off | on | CSVs aren't embedded; the model calls a `calculate` tool that computes over every row, instead of adding up 5 chunks |
 | `condenseQueries` | off | on | long questions rewritten into a short search query |
 | `maxChunksPerSource` | none | 2 | no one file fills every slot (under normal, the 240-row CSV does) |
 | `relevanceGate` | off | on | "Hello" gets a greeting, not the returns policy |
-| `strictGrounding` | off | on | the model won't estimate a total from a partial sample, and asks for a missing detail (a year, a measure) instead of refusing |
-| `guardedPrompt` | off | on | the system prompt forbids inventing company facts; normal gets the tutorial's "answer using the excerpts" |
+| `fineTunedPrompt` | off | on | `optimized_prompt.dart` forbids inventing company facts, asks for a missing detail (a year, a measure) instead of refusing, and won't estimate a total from a partial sample; normal gets `normal_prompt.dart`, the tutorial's "answer using the excerpts" |
+
+Both recipes chunk the same way: 600 characters with 200 overlap, and markdown
+a section at a time, so no chunk mixes two topics. Chunk size isn't one of the
+switches because it's a trade-off to tune, not a fix: 600 retrieves more short
+questions than 1200, but a 1200-character chunk sometimes holds two sections a
+question needs together.
 
 The app can also switch while it runs: the **Optimize** switch in the top
 corner of the recipe card flips between normal and optimized. The conversation
@@ -114,25 +117,32 @@ flutter test tool/retrieval_quality/before_after.dart
 It runs both recipes through `RagPipeline.prepare` on the same questions and
 writes `talk/eval/before_after.json` with every question, answer and score.
 
-Measured 2026-10-19 on `sample_kb/` with `locusai/all-minilm-l6-v2` and `gpt-oss`,
-before Use Tool Calling replaced the keyword planner, so the optimized column's
-totals came from the planner. Re-run `before_after.dart` with Ollama running to
-measure tool calling:
+Measured 2026-10-22 on `sample_kb/` with `locusai/all-minilm-l6-v2` and
+`gpt-oss`:
 
 | | normal | optimized |
 |---|---|---|
 | Right file in the model's context (23 questions) | 22 | 23 |
-| Right file ranked first (23) | 19 | 20 |
+| Right file ranked first (23) | 18 | 20 |
 | Small talk answered without documents (12) | 0 | 11 |
-| Totals exactly right, end to end (6) | 0 | 6 |
-| Median time to build the prompt | 24 ms | 38 ms |
+| Showcase questions answered right (6) | 0 | 6 |
+| Controls answered right (4) | 4 | 4 |
+| Median time to build the prompt | 25 ms | 25 ms |
 
-Normal's lookups look fine because it never filters: the right file usually rides
-along in its top five, along with everything else. The difference is what it
+The showcase questions are in `tool/eval_set.dart`, each with the
+optimizations that fix it. Three are totals over the sales CSV, which normal
+can't add up from five excerpts and tool calling computes exactly. "How much
+did Ikeja make?" leaves out the period, so the tuned prompt either asks for it
+or answers for the only quarter there is. "Who is Cristiano Ronaldo?" and "What
+is the capital of France?" are general knowledge: normal pastes in company
+excerpts and then says they don't mention it, while relevance filtering and the
+tuned prompt let the model just answer.
+
+The controls (paternity leave, a supplier contact, the staff discount, "Hello")
+show normal RAG isn't useless: a plain lookup in the documents works under both.
+Normal's lookups look fine because it never filters, so the right file usually
+rides along in its top five, with everything else. The difference is what that
 costs: every "Hello" gets five excerpts pasted in, and every total is wrong.
-Normal's totals fail because the sales rows never reach the model at all, and
-gpt-oss says so rather than guessing. Normal misses the long employee-discount
-question; the optimized recipe's condensed query finds it.
 
 ## The evaluation harness
 
@@ -197,7 +207,7 @@ No prompt fixes this, and no value of _k_ fixes it either. Retrieval ranks by
 Worse, `maxPerSource: 2` — the cap that fixed prose retrieval below — actively
 makes this failure worse by holding the CSV to two chunks.
 
-So structured files aren't embedded at all. With **Use Tool Calling** on, a
+So structured files aren't embedded at all. With **Tool calling** on, a
 CSV is loaded as a table (`CsvTable`) and the model gets a `calculate` tool,
 plus a description of each table in its system prompt: the columns, the values
 in each text column, and the dates covered. The model decides whether a
@@ -238,8 +248,8 @@ keywords in the question. Every new phrasing ("jan", "made", "excluding", "and
 February?") needed another rule. The model already understands all of those;
 tool calling lets it decide, while the arithmetic stays in code.
 
-The `strictGrounding` recipe switch still governs excerpts, where the model
-*is* working from a partial sample.
+The fine-tuned prompt's rule against estimating totals still governs
+excerpts, where the model *is* working from a partial sample.
 
 ### 2. Changing the embedding model moves the goalposts twice
 
@@ -587,12 +597,14 @@ what happened when only the chunk size changed.
 
 Two supporting details:
 
-- **The system prompt changes shape** depending on whether context was retrieved.
-  With excerpts it is told to prefer them and cite the file; without, it is just
-  an assistant. Both versions forbid inventing company facts, and under strict
-  grounding both ask for a missing detail rather than refuse. With Use Tool
-  Calling and CSV files indexed, the calculate tool's rules and a description
-  of every table are added at the end.
+- **There are two prompts, side by side.** `normal_prompt.dart` is the one line
+  a tutorial gives; `optimized_prompt.dart` is the tuned prompt, split into the
+  sections each switch turns on. With Fine tune prompts on, the model is told
+  never to invent company facts, and to ask for a missing detail rather than
+  refuse. When excerpts were retrieved, it is also told to prefer them, cite
+  the file, and not estimate totals from them. With Tool calling and CSV files
+  indexed, the calculate tool's rules and a description of every table are
+  added at the end.
 - **History is replayed clean.** The last 8 turns go into the request, but
   retrieved excerpts attach only to the current question and are never written
   into history — otherwise stale context from three questions ago keeps steering
@@ -640,8 +652,11 @@ lib/
   rag/                         the workflow: this app's RAG, step by step
     rag_recipe.dart            the switches, and the normal / optimized presets
     rag_pipeline.dart          ingest (load, chunk, embed, store; CSVs become tables), prepare (retrieve, gate, prompt), generate (run tool calls)
+    markdown_sections.dart     splits a markdown file before each heading
     calculate_tool.dart        the calculate tool: describes the CSV tables, checks the model's requests, computes exact figures
-    rag_prompts.dart           every piece of text sent to the chat model
+    normal_prompt.dart         the unoptimized prompt: a tutorial's one line
+    optimized_prompt.dart      the optimized prompt, in sections per switch
+    rag_prompts.dart           puts the system prompt together from those two
     retrieval_settings.dart    top-k, per-file cap, measured per-model gates
 
   tables/
@@ -782,7 +797,7 @@ two HNSW indexes, `documents/` and `tables/`, searches both and merges by score:
 8 of 8 builds then ranked the handbook first, on default settings. Measured
 2026-10-19. An earlier build hid this behind a full scan below 500 chunks,
 which doesn't scale and was removed. Only the normal recipe still embeds
-spreadsheet rows; with Use Tool Calling the `tables/` index stays empty.
+spreadsheet rows; with tool calling the `tables/` index stays empty.
 
 ### Two ObjectBox things worth knowing
 

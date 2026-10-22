@@ -7,13 +7,15 @@
 // so the only difference between the two columns is the switches in
 // RagRecipe. Writes talk/eval/before_after.json.
 //
-// Three things are measured, because each optimization fixes one of them:
+// Three things are measured:
 //
 //   lookups     Did the excerpts the model saw include the file that holds the
 //               answer? (23 questions: long, short and in between)
 //   small talk  Was "Hello" answered without dragging in documents? (12)
-//   arithmetic  Did the final answer contain the exact total? (6; this one
-//               runs the chat model, so it is the slow part)
+//   questions   Was the final answer right? The showcase in eval_set.dart:
+//               questions normal RAG gets wrong and optimized RAG gets right,
+//               plus controls both get right. This one runs the chat model,
+//               so it is the slow part.
 
 import 'dart:convert';
 import 'dart:io';
@@ -21,7 +23,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_rag/rag/rag_pipeline.dart';
 import 'package:local_rag/rag/rag_recipe.dart';
-import 'package:local_rag/tables/csv_table.dart';
 import 'package:rag_blocks/rag_blocks.dart';
 
 import '../bench_index.dart';
@@ -37,12 +38,6 @@ const Map<String, String> lookupEval = {
   ...shortFormEval,
   ...longFormEval,
 };
-
-/// Every number in [answer], with thousands separators removed.
-Iterable<num> numbersIn(String answer) => RegExp(r'\d[\d,]*(?:\.\d+)?')
-    .allMatches(answer)
-    .map((m) => num.tryParse(m.group(0)!.replaceAll(',', '')))
-    .whereType<num>();
 
 Future<Map<String, Object?>> evaluate(
   OllamaClient ollama,
@@ -102,27 +97,25 @@ Future<Map<String, Object?>> evaluate(
     );
   }
 
-  // ---- Arithmetic, end to end -----------------------------------------
-  final arithmetic = <Map<String, Object?>>[];
-  for (final MapEntry(key: question, value: truth) in arithmeticEval.entries) {
-    final prompt = await prepare(question);
+  // ---- Questions, end to end -----------------------------------------
+  final questions = <Map<String, Object?>>[];
+  for (final q in showcase) {
+    final prompt = await prepare(q.question);
     final answer = StringBuffer();
     await for (final chunk in pipeline.generate(chatModel, prompt)) {
       if (chunk.content != null) answer.write(chunk.content);
     }
     final text = answer.toString().trim();
-    final correct = numbersIn(text).contains(truth);
-    arithmetic.add({
-      'question': question,
-      'truth': truth,
-      'correct': correct,
+    final passed = q.passes(text);
+    questions.add({
+      'question': q.question,
+      'fixedBy': q.fixedBy,
+      'passed': passed,
+      'grounded': prompt.grounded,
       'computed': prompt.computed != null,
       'answer': text,
     });
-    stdout.writeln(
-      '${correct ? '✓' : '✗'} $question  '
-      '(truth ${QueryResult.formatNumber(truth)})',
-    );
+    stdout.writeln('${passed ? '✓' : '✗'} ${q.question}');
   }
 
   index.dispose();
@@ -139,13 +132,13 @@ Future<Map<String, Object?>> evaluate(
       'lookupTotal': lookups.length,
       'smallTalkClean': count(smallTalk, 'clean'),
       'smallTalkTotal': smallTalk.length,
-      'arithmeticCorrect': count(arithmetic, 'correct'),
-      'arithmeticTotal': arithmetic.length,
+      'questionsPassed': count(questions, 'passed'),
+      'questionsTotal': questions.length,
       'medianPrepareMs': prepareMs[prepareMs.length ~/ 2],
     },
     'lookups': lookups,
     'smallTalk': smallTalk,
-    'arithmetic': arithmetic,
+    'questions': questions,
   };
 }
 
@@ -166,7 +159,7 @@ Future<void> _run() async {
       '${(r['recipe'] as String).padRight(10)} '
       'lookups ${pct(s, 'lookupHit', 'lookupTotal').padRight(13)} '
       'small talk ${pct(s, 'smallTalkClean', 'smallTalkTotal').padRight(13)} '
-      'arithmetic ${pct(s, 'arithmeticCorrect', 'arithmeticTotal').padRight(10)} '
+      'questions ${pct(s, 'questionsPassed', 'questionsTotal').padRight(10)} '
       'median prepare ${s['medianPrepareMs']}ms',
     );
   }
