@@ -194,21 +194,27 @@ class CalculateTool {
   /// gets an outcome explaining why, worded for the model to act on.
   CalculateOutcome run(ToolCall call) {
     if (call.name != name) {
-      return CalculateOutcome.error('There is no tool called "${call.name}".');
+      return CalculateOutcome.error(
+        call,
+        'There is no tool called "${call.name}".',
+      );
     }
     final parsed = parse(call.arguments);
-    if (parsed.error != null) return CalculateOutcome.error(parsed.error!);
+    if (parsed.error != null) {
+      return CalculateOutcome.error(call, parsed.error!);
+    }
     final (table, query) = parsed.request!;
     final result = table.aggregate(query);
     if (result == null) {
-      return CalculateOutcome.error('That calculation could not be run.');
+      return CalculateOutcome.error(call, 'That calculation could not be run.');
     }
     if (result.isEmpty) {
       return CalculateOutcome.error(
+        call,
         'No rows match: ${query.describe()}. ${_coverage(table)}',
       );
     }
-    return CalculateOutcome.success(result);
+    return CalculateOutcome.success(call, result);
   }
 
   /// The table and query [arguments] ask for, or an error saying what is
@@ -448,11 +454,16 @@ class CalculateTool {
 /// What running a [CalculateTool] request produced: a result, or an error
 /// the model can act on. [text] is what to send back as the tool result.
 class CalculateOutcome {
-  CalculateOutcome.success(QueryResult this.result)
+  CalculateOutcome.success(this.call, QueryResult this.result)
     : text = result.toPromptBlock(),
       error = null;
 
-  CalculateOutcome.error(String this.error) : text = error, result = null;
+  CalculateOutcome.error(this.call, String this.error)
+    : text = error,
+      result = null;
+
+  /// What the model asked for.
+  final ToolCall call;
 
   final QueryResult? result;
   final String? error;
