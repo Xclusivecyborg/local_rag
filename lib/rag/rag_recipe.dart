@@ -76,9 +76,10 @@ class RagRecipe {
 
   /// Folder this recipe's index lives in, inside Application Support.
   ///
-  /// Each recipe chunks differently, so each needs its own index. Keeping
-  /// them apart means switching recipe never forces a re-index. [optimized]
-  /// keeps the original `objectbox` folder, so an existing index still loads.
+  /// Normal embeds the CSV rows and optimized does not, so each needs its
+  /// own index. Keeping them apart means switching recipe never forces a
+  /// re-index. [optimized] keeps the original `objectbox` folder, so an
+  /// existing index still loads.
   String get indexFolder =>
       name == 'optimized' ? 'objectbox' : 'objectbox-$name';
 
