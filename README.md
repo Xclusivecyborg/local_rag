@@ -27,7 +27,7 @@ must install Ollama.
 | Embeddings | `locusai/all-minilm-l6-v2` | 384-d, via Ollama |
 | Vector search | ObjectBox | HNSW on disk, cosine distance |
 | Aggregation | tool calling: a `calculate` tool over `CsvTable` | exact, over every row |
-| Building blocks | [`rag_blocks`](../rag_blocks) | splitter, condenser, tables, Ollama client: pure Dart |
+| Building blocks | [`rag_blocks`](../rag_blocks) | splitter, condenser, Ollama client with tool calling: pure Dart |
 | Orchestration | `lib/rag/rag_pipeline.dart` | no LangChain, no Python |
 | UI | Flutter macOS | streaming, citations |
 
@@ -637,6 +637,9 @@ lib/
     rag_prompts.dart           every piece of text sent to the chat model
     retrieval_settings.dart    top-k, per-file cap, measured per-model gates
 
+  tables/
+    csv_table.dart             CsvTable: exact totals, averages and breakdowns over every row
+
   vector_search/               storing vectors and finding the nearest ones
     objectbox_store.dart       the index: ObjectBox HNSW on disk, a rag_blocks VectorStore
     vectors.dart               normalising, and the padding rules
@@ -690,8 +693,7 @@ tool/
   lib/src/
     document_loaders/          findSupportedFiles
     text_splitters/            RecursiveCharacterTextSplitter: paragraphs, sentences, overlap
-    document_transformers/     csvToProse
-    tables/                    CsvTable: exact totals, averages and breakdowns over every row
+    document_transformers/     csvToProse, and parseCsvGrid underneath it
     query_transformers/        QueryCondenser: rewrites long questions before embedding
     llms/                      OllamaClient: connect(), chat() / chatStream(), embed(), listModels()
                                OllamaLauncher: finds the ollama binary, starts it detached, stops it
@@ -721,6 +723,8 @@ reaching the index pulls in Flutter and the plain Dart VM cannot compile it.
 | `question_answering/default_model_test.dart` | which model the app starts on when several are installed |
 | `question_answering/conversation_test.dart` | integration against a live model, incl. the January question answering 71,882,000 not 7,663,000 |
 | `ui/markdown_test.dart` | renderer, including every streaming prefix |
+| `tables/table_test.dart` | exact arithmetic vs independently computed ground truth, for every kind of query |
+| `rag/calculate_tool_test.dart` | the tool's schema and table description, the spellings models use, and every request it refuses |
 
 In `rag_blocks/test/`, run with `dart test` from that repo:
 
@@ -728,7 +732,6 @@ In `rag_blocks/test/`, run with `dart test` from that repo:
 |---|---|
 | `recursive_character_text_splitter_test.dart` | paragraph splitting, overlap, the size ceiling, source offsets incl. CRLF files |
 | `csv_to_prose_test.dart` | CSV rendered as labelled prose |
-| `table_test.dart` | exact arithmetic vs independently computed ground truth, for every kind of query |
 | `query_condenser_test.dart` | when to rewrite, and every way a rewrite is rejected |
 | `ollama_client_test.dart` | `chat` waits for the whole reply, `chatStream` yields pieces, errors are thrown |
 | `ollama_launcher_test.dart` | paths a working machine never reaches: no binary, dangling symlink, failed spawn, start timeout, SIGTERM/SIGKILL escalation, a server we did not start, the menu-bar app that restarts its server |
