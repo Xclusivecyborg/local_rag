@@ -8,6 +8,7 @@ import 'package:local_rag/tables/csv_table.dart';
 import 'package:rag_blocks/rag_blocks.dart';
 
 import 'calculate_tool.dart';
+import 'markdown_sections.dart';
 import 'optimized_prompt.dart';
 import 'rag_prompts.dart';
 import 'rag_recipe.dart';
@@ -118,8 +119,24 @@ class RagPipeline {
           continue;
         }
       }
-      // 2. Chunking.
-      chunks.addAll(splitter.splitText(text, source: name));
+      // 2. Chunking, a section at a time for markdown when the recipe says.
+      final sections = recipe.splitAtHeadings && fileExtension(name) == '.md'
+          ? markdownSections(text)
+          : [(text: text, start: 0)];
+      var index = 0;
+      for (final section in sections) {
+        for (final c in splitter.splitText(section.text, source: name)) {
+          chunks.add(
+            Chunk(
+              text: c.text,
+              source: name,
+              index: index++,
+              start: section.start + c.start,
+              end: section.start + c.end,
+            ),
+          );
+        }
+      }
     }
 
     if (chunks.isEmpty && tables.isEmpty) {
