@@ -68,8 +68,6 @@ class RagRecipe {
   /// The tutorial pipeline, with every optimization off.
   static const RagRecipe normal = RagRecipe(
     name: 'normal',
-    chunkSize: 1200,
-    splitAtHeadings: false,
     useToolCalling: false,
     condenseQueries: false,
     maxChunksPerSource: null,
