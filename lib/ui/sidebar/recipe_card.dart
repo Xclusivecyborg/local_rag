@@ -64,7 +64,7 @@ class RecipeCard extends StatelessWidget {
 }
 
 /// One segment per optimization, lit when it is on. Readable from the back
-/// of a room in a way "7 of 7" is not.
+/// of a room in a way "6 of 6" is not.
 class _Meter extends StatelessWidget {
   const _Meter({required this.states});
   final List<bool> states;

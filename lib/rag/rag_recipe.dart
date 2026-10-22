@@ -95,15 +95,6 @@ class RagRecipe {
   /// sidebar (which groups them by stage) and the eval report.
   List<Optimization> get optimizations => [
     Optimization(
-      'Smaller chunks',
-      'Cut files into smaller pieces, one section at a time',
-      RagStage.indexing,
-      enabled: chunkSize <= 600 && splitAtHeadings,
-      setting: splitAtHeadings
-          ? '$chunkSize chars, by section'
-          : '$chunkSize chars',
-    ),
-    Optimization(
       'Fine tune prompts',
       'Never make up company facts',
       RagStage.answering,
@@ -151,7 +142,6 @@ class RagRecipe {
 
 /// The part of the pipeline an optimization improves.
 enum RagStage {
-  indexing('Indexing'),
   retrieval('Retrieval'),
   answering('Answering');
 
@@ -178,8 +168,6 @@ class Optimization {
   final RagStage stage;
   final bool enabled;
 
-  /// The value it runs with, e.g. "600 chars", shown even when the
-  /// optimization is off if the normal value teaches something (1200 chars).
-  /// Null when there is none.
+  /// The value it runs with, e.g. "2 per file". Null when there is none.
   final String? setting;
 }

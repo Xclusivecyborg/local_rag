@@ -125,7 +125,7 @@ const List<ShowcaseQuestion> showcase = [
   ShowcaseQuestion(
     'As a Stridewell employee, what discount would I get on a pair of Formal '
     'shoes that costs 100,000 naira?',
-    fixedBy: ['Smaller chunks'],
+    fixedBy: [],
     passIf: ['40%', '40 %', '40000', '60000'],
   ),
   ShowcaseQuestion(
