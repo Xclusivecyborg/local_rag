@@ -8,6 +8,7 @@ import 'package:local_rag/tables/csv_table.dart';
 import 'package:rag_blocks/rag_blocks.dart';
 
 import 'calculate_tool.dart';
+import 'optimized_prompt.dart';
 import 'rag_prompts.dart';
 import 'rag_recipe.dart';
 import 'retrieval_settings.dart';
@@ -219,7 +220,7 @@ class RagPipeline {
           grounded: grounded,
           strictGrounding: recipe.strictGrounding,
           tables: calculator?.describeTables(),
-          guarded: recipe.fineTunedPrompt,
+          fineTuned: recipe.fineTunedPrompt,
         ),
       ),
       // Earlier turns are replayed without their excerpts, so old context
@@ -282,7 +283,7 @@ class RagPipeline {
         if (!offerTools || !e.message.contains('error parsing tool call')) {
           rethrow;
         }
-        messages.add(ChatMessage('system', RagPrompts.unreadableToolCall));
+        messages.add(ChatMessage('system', OptimizedPrompt.unreadableToolCall));
         continue;
       }
       if (calls.isEmpty || calculator == null) return;

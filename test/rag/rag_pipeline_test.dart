@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:local_rag/rag/optimized_prompt.dart';
 import 'package:local_rag/rag/rag_pipeline.dart';
 import 'package:local_rag/rag/rag_prompts.dart';
 import 'package:local_rag/rag/rag_recipe.dart';
@@ -370,7 +371,7 @@ void main() {
       RagPrompts.system(
         grounded: true,
         strictGrounding: false,
-        guarded: false,
+        fineTuned: false,
       ).contains(rule),
       isFalse,
       reason: 'normal',
@@ -385,7 +386,7 @@ void main() {
         strictGrounding: true,
         tables: tables,
       );
-      expect(prompt, endsWith('${RagPrompts.toolRules}\n\n$tables'));
+      expect(prompt, endsWith('${OptimizedPrompt.toolRules}\n\n$tables'));
     }
     expect(
       RagPrompts.system(grounded: true, strictGrounding: true),
