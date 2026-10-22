@@ -114,7 +114,7 @@ It runs both recipes through `RagPipeline.prepare` on the same questions and
 writes `talk/eval/before_after.json` with every question, answer and score.
 
 Measured 2026-10-19 on `sample_kb/` with `locusai/all-minilm-l6-v2` and `gpt-oss`,
-before Use Tool Calling replaced the keyword planner, so the optimized column's
+before tool calling replaced the keyword planner, so the optimized column's
 totals came from the planner. Re-run `before_after.dart` with Ollama running to
 measure tool calling:
 
@@ -196,7 +196,7 @@ No prompt fixes this, and no value of _k_ fixes it either. Retrieval ranks by
 Worse, `maxPerSource: 2` — the cap that fixed prose retrieval below — actively
 makes this failure worse by holding the CSV to two chunks.
 
-So structured files aren't embedded at all. With **Use Tool Calling** on, a
+So structured files aren't embedded at all. With **Tool calling** on, a
 CSV is loaded as a table (`CsvTable`) and the model gets a `calculate` tool,
 plus a description of each table in its system prompt: the columns, the values
 in each text column, and the dates covered. The model decides whether a
@@ -781,7 +781,7 @@ two HNSW indexes, `documents/` and `tables/`, searches both and merges by score:
 8 of 8 builds then ranked the handbook first, on default settings. Measured
 2026-10-19. An earlier build hid this behind a full scan below 500 chunks,
 which doesn't scale and was removed. Only the normal recipe still embeds
-spreadsheet rows; with Use Tool Calling the `tables/` index stays empty.
+spreadsheet rows; with tool calling the `tables/` index stays empty.
 
 ### Two ObjectBox things worth knowing
 

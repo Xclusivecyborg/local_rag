@@ -86,15 +86,28 @@ class RagRecipe {
   String get tablesFile =>
       name == 'optimized' ? 'tables.json' : 'tables-$name.json';
 
-  /// Every optimization, grouped by the stage it improves, for the sidebar
-  /// and the eval report.
+  /// Every optimization, in the order the talk introduces them, for the
+  /// sidebar (which groups them by stage) and the eval report.
   List<Optimization> get optimizations => [
     Optimization(
-      'Small chunks',
+      'Smaller chunks',
       'Cut files into smaller pieces',
       RagStage.indexing,
       enabled: chunkSize <= 600,
       setting: '$chunkSize chars',
+    ),
+    Optimization(
+      'Fine tune prompts',
+      'Never make up company facts',
+      RagStage.answering,
+      enabled: fineTunedPrompt,
+    ),
+    Optimization(
+      'Strict data grounding',
+      'Say “I don’t know” when the available data is insufficient rather '
+          'than guessing or estimating.',
+      RagStage.answering,
+      enabled: strictGrounding,
     ),
     Optimization(
       'Query condensing',
@@ -113,31 +126,18 @@ class RagRecipe {
           : '$maxChunksPerSource per file',
     ),
     Optimization(
-      'Relevance Filtering',
+      'Relevance filtering',
       'Use only documents relevant to the question, so small talk gets a '
           'natural response.',
       RagStage.retrieval,
       enabled: relevanceGate,
     ),
     Optimization(
-      'Use Tool Calling',
+      'Tool calling',
       'When you have data that needs to be computed, like CSV tables, '
           'don\'t embed it. Use tool calling to fetch data from it instead.',
       RagStage.answering,
       enabled: useToolCalling,
-    ),
-    Optimization(
-      'Strict Data Grounding',
-      'Say “I don’t know” when the available data is insufficient rather '
-          'than guessing or estimating.',
-      RagStage.answering,
-      enabled: strictGrounding,
-    ),
-    Optimization(
-      'Never-invent prompt',
-      'Never make up company facts',
-      RagStage.answering,
-      enabled: fineTunedPrompt,
     ),
   ];
 }
