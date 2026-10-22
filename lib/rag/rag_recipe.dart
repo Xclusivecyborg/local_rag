@@ -33,14 +33,15 @@ class RagRecipe {
 
   /// Rewrite CSV rows as labelled sentences before embedding.
   /// `Region: Lagos. Units sold: 48.` gives an embedder something to match;
-  /// `2026-01-05,Lagos,Everyday,48` does not.
+  /// `2026-01-05,Lagos,Everyday,48` does not. Has no effect with
+  /// [useToolCalling], which does not embed CSV files at all.
   final bool csvAsProse;
 
   // ---- Answering -------------------------------------------------------
 
-  /// Give the model a calculate tool over the CSV files, so totals and
-  /// averages are computed over every row by code, not added up by the model
-  /// from the five chunks it happened to retrieve.
+  /// Keep CSV files out of the index and give the model a calculate tool
+  /// instead, so totals and averages are computed over every row by code,
+  /// not added up by the model from the five chunks it happened to retrieve.
   final bool useToolCalling;
 
   /// Rewrite a long question into a short search query before embedding it.
@@ -103,12 +104,14 @@ class RagRecipe {
       enabled: chunkSize <= 600,
       setting: '$chunkSize chars',
     ),
-    Optimization(
-      'CSV rows as prose',
-      'Turn spreadsheet rows into sentences',
-      RagStage.indexing,
-      enabled: csvAsProse,
-    ),
+    // Tool calling keeps CSV files out of the index, so this does nothing.
+    if (!useToolCalling)
+      Optimization(
+        'CSV rows as prose',
+        'Turn spreadsheet rows into sentences',
+        RagStage.indexing,
+        enabled: csvAsProse,
+      ),
     Optimization(
       'Query condensing',
       'Shorten and optimize long questions first',

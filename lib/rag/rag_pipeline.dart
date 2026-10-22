@@ -109,11 +109,12 @@ class RagPipeline {
         continue;
       }
       if (fileExtension(name) == '.csv') {
-        // A CSV is used both ways: as text for lookups ("which supplier makes
-        // Heritage shoes?") and as a table for arithmetic ("January revenue").
+        // With tool calling a CSV is only a table: the model asks the
+        // calculate tool for figures, so embedding its rows adds nothing.
         if (recipe.useToolCalling) {
           final table = CsvTable.parse(text, source: name);
           if (table.rowCount > 0) tables.add(table);
+          continue;
         }
         if (recipe.csvAsProse) text = csvToProse(text);
       }
@@ -121,7 +122,7 @@ class RagPipeline {
       chunks.addAll(splitter.splitText(text, source: name));
     }
 
-    if (chunks.isEmpty) {
+    if (chunks.isEmpty && tables.isEmpty) {
       throw StateError(
         'No readable text found. Supported: '
         '${supportedExtensions.join(", ")}.\n'
@@ -140,9 +141,13 @@ class RagPipeline {
         IngestProgress('Embedding', done: done, total: total),
       ),
     );
+    // Only spreadsheets: the index is empty, but still needs its width.
+    final dimension = vectors.isNotEmpty
+        ? vectors.first.length
+        : (await ollama.embedOne(model: embeddingModel, input: 'x')).length;
 
     // 4. Vector database.
-    final index = await createIndex(embeddingModel, vectors.first.length);
+    final index = await createIndex(embeddingModel, dimension);
     index.addAll(chunks, vectors);
 
     final tableRows = tables.fold<int>(0, (sum, t) => sum + t.rowCount);

@@ -87,6 +87,11 @@ void main() {
       'Unworn footwear may be returned within 21 days.\n\n'
       'The Heritage line has a 45-day returns window.',
     );
+    // A second prose file keeps documents embedding in a batch, which is
+    // how the fake tells them from queries, once the CSV is not embedded.
+    File(
+      '${kb.path}/stores.md',
+    ).writeAsStringSync('Stridewell has stores in Lagos and Abuja.');
   });
 
   tearDown(() {
@@ -118,13 +123,13 @@ void main() {
     expect(csv.single.chunk.text, contains('2026-01-05,Lagos,Everyday,1000'));
   });
 
-  test('optimized indexes CSV rows as prose and keeps the table', () async {
+  test('optimized keeps the CSV as a table and does not embed it', () async {
     final index = await ingest(RagRecipe.optimized);
     expect(index.tables.single.rowCount, 3);
 
     final hits = index.store.search(docVector, k: 10);
-    final csv = hits.where((h) => h.chunk.source == 'sales.csv');
-    expect(csv.first.chunk.text, contains('location: Lagos'));
+    expect(hits.where((h) => h.chunk.source == 'sales.csv'), isEmpty);
+    expect(hits.where((h) => h.chunk.source == 'returns.md'), isNotEmpty);
   });
 
   test('naive pastes excerpts into every question, even "Hello"', () async {
