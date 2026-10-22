@@ -1,9 +1,9 @@
 /// The optimized prompt, in the sections the recipe switches turn on.
 ///
-/// [base] and [groundedRules] are "Fine tune prompts". [clarifyRule] and
-/// [aggregationRule] are "Strict data grounding". [toolRules] and
-/// [unreadableToolCall] come with "Tool calling". RagPrompts.system puts
-/// them together; [NormalPrompt] is what the model gets without them.
+/// [base], [groundedRules], [clarifyRule] and [aggregationRule] are "Fine
+/// tune prompts". [toolRules] and [unreadableToolCall] come with "Tool
+/// calling". RagPrompts.system puts them together; [NormalPrompt] is what
+/// the model gets without them.
 abstract final class OptimizedPrompt {
   // ---- Fine tune prompts -----------------------------------------------
 
@@ -28,10 +28,8 @@ for anything company-specific, and name the file you used. A search found them
 in the user's knowledge base; the user did not paste them, so do not refer to
 them as something the user shared.''';
 
-  // ---- Strict data grounding -------------------------------------------
-
-  /// Added under strict grounding whenever nothing was computed, so a
-  /// question missing a detail gets a question back instead of a refusal.
+  /// Always added, so a question missing a detail gets a question back
+  /// instead of a refusal.
   static const String clarifyRule = '''
 - If a question about the company's numbers leaves out something the answer
   depends on, do not answer or refuse. Ask for the missing detail in one short
@@ -42,7 +40,7 @@ them as something the user shared.''';
   year?). This comes first: ask before applying any rule about partial
   excerpts.''';
 
-  /// Added to [groundedRules] under strict grounding.
+  /// Added after [clarifyRule] when excerpts were retrieved.
   static const String aggregationRule = '''
 - If a question requires adding up, counting, or averaging values spread across
   many records, do NOT estimate from the excerpts. Say they are a partial

@@ -132,7 +132,7 @@ const List<ShowcaseQuestion> showcase = [
     'How much did Ikeja make?',
     // Asking which period is right; so is the total over the only quarter
     // the data has.
-    fixedBy: ['Strict data grounding', 'Tool calling'],
+    fixedBy: ['Fine tune prompts', 'Tool calling'],
     passIf: [
       'period',
       'time frame',

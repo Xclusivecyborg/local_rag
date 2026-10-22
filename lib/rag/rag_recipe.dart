@@ -14,7 +14,6 @@ class RagRecipe {
     this.condenseQueries = true,
     this.maxChunksPerSource = 2,
     this.relevanceGate = true,
-    this.strictGrounding = true,
     this.fineTunedPrompt = true,
     this.topK = 5,
   });
@@ -49,12 +48,11 @@ class RagRecipe {
   /// measured threshold, so "Hello" does not pull in the returns policy.
   final bool relevanceGate;
 
-  /// Tell the model not to estimate totals from a partial set of excerpts.
-  final bool strictGrounding;
-
   /// Use the app's system prompt, which tells the model never to invent
-  /// company facts. Off, it gets the tutorial's "answer using the excerpts",
-  /// and will confidently add up whatever five chunks it was handed.
+  /// company facts, to ask for a detail a question leaves out, and not to
+  /// estimate totals from a partial set of excerpts. Off, it gets the
+  /// tutorial's "answer using the excerpts", and will confidently add up
+  /// whatever five chunks it was handed.
   final bool fineTunedPrompt;
 
   /// Chunks retrieved per question.
@@ -67,7 +65,6 @@ class RagRecipe {
     condenseQueries: false,
     maxChunksPerSource: null,
     relevanceGate: false,
-    strictGrounding: false,
     fineTunedPrompt: false,
   );
 
@@ -92,16 +89,10 @@ class RagRecipe {
   List<Optimization> get optimizations => [
     Optimization(
       'Fine tune prompts',
-      'Never make up company facts',
+      'Never make up company facts, and ask when a question leaves out '
+          'a detail',
       RagStage.answering,
       enabled: fineTunedPrompt,
-    ),
-    Optimization(
-      'Strict data grounding',
-      'Say “I don’t know” when the available data is insufficient rather '
-          'than guessing or estimating.',
-      RagStage.answering,
-      enabled: strictGrounding,
     ),
     Optimization(
       'Query condensing',
