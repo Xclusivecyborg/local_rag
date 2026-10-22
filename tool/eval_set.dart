@@ -72,8 +72,8 @@ const Map<String, String> longFormEval = {
 
 /// Aggregation questions over sales_q1_2026.csv -> the exact answer.
 ///
-/// Ground truth computed with awk straight from the CSV, not by the app's
-/// planner, so a planner bug cannot also hide in the expected value.
+/// Ground truth computed with awk straight from the CSV, not by the app,
+/// so a bug in the calculation cannot also hide in the expected value.
 const Map<String, num> arithmeticEval = {
   "How much was Stridewell's revenue in ngn in january 2026?": 71882000,
   'What was our total revenue in Q1 2026?': 204740500,

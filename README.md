@@ -230,7 +230,7 @@ early version skipped it, totalled every location, and the model still called
 the figure Ikeja's. A plausible wrong number is the exact failure this feature
 exists to remove.
 
-Before tool calling, `TableQueryPlanner` (still in `rag_blocks`) matched
+Before tool calling, a `TableQueryPlanner` (since removed) matched
 keywords in the question. Every new phrasing ("jan", "made", "excluding", "and
 February?") needed another rule. The model already understands all of those;
 tool calling lets it decide, while the arithmetic stays in code.
@@ -691,7 +691,7 @@ tool/
     document_loaders/          findSupportedFiles
     text_splitters/            RecursiveCharacterTextSplitter: paragraphs, sentences, overlap
     document_transformers/     csvToProse
-    tables/                    CsvTable, and TableQueryPlanner (refusing is the point)
+    tables/                    CsvTable: exact totals, averages and breakdowns over every row
     query_transformers/        QueryCondenser: rewrites long questions before embedding
     llms/                      OllamaClient: connect(), chat() / chatStream(), embed(), listModels()
                                OllamaLauncher: finds the ollama binary, starts it detached, stops it
@@ -728,7 +728,7 @@ In `rag_blocks/test/`, run with `dart test` from that repo:
 |---|---|
 | `recursive_character_text_splitter_test.dart` | paragraph splitting, overlap, the size ceiling, source offsets incl. CRLF files |
 | `csv_to_prose_test.dart` | CSV rendered as labelled prose |
-| `table_test.dart` | exact arithmetic vs independently computed ground truth, and every case the planner must decline |
+| `table_test.dart` | exact arithmetic vs independently computed ground truth, for every kind of query |
 | `query_condenser_test.dart` | when to rewrite, and every way a rewrite is rejected |
 | `ollama_client_test.dart` | `chat` waits for the whole reply, `chatStream` yields pieces, errors are thrown |
 | `ollama_launcher_test.dart` | paths a working machine never reaches: no binary, dangling symlink, failed spawn, start timeout, SIGTERM/SIGKILL escalation, a server we did not start, the menu-bar app that restarts its server |
