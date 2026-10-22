@@ -116,7 +116,6 @@ class RagPipeline {
           if (table.rowCount > 0) tables.add(table);
           continue;
         }
-        if (recipe.csvAsProse) text = csvToProse(text);
       }
       // 2. Chunking.
       chunks.addAll(splitter.splitText(text, source: name));

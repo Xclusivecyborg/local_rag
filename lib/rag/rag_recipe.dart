@@ -10,7 +10,6 @@ class RagRecipe {
     required this.name,
     this.chunkSize = 600,
     this.chunkOverlap = 200,
-    this.csvAsProse = true,
     this.useToolCalling = true,
     this.condenseQueries = true,
     this.maxChunksPerSource = 2,
@@ -30,12 +29,6 @@ class RagRecipe {
   /// at 600.
   final int chunkSize;
   final int chunkOverlap;
-
-  /// Rewrite CSV rows as labelled sentences before embedding.
-  /// `Region: Lagos. Units sold: 48.` gives an embedder something to match;
-  /// `2026-01-05,Lagos,Everyday,48` does not. Has no effect with
-  /// [useToolCalling], which does not embed CSV files at all.
-  final bool csvAsProse;
 
   // ---- Answering -------------------------------------------------------
 
@@ -70,7 +63,6 @@ class RagRecipe {
   static const RagRecipe normal = RagRecipe(
     name: 'normal',
     chunkSize: 1200,
-    csvAsProse: false,
     useToolCalling: false,
     condenseQueries: false,
     maxChunksPerSource: null,
@@ -104,14 +96,6 @@ class RagRecipe {
       enabled: chunkSize <= 600,
       setting: '$chunkSize chars',
     ),
-    // Tool calling keeps CSV files out of the index, so this does nothing.
-    if (!useToolCalling)
-      Optimization(
-        'CSV rows as prose',
-        'Turn spreadsheet rows into sentences',
-        RagStage.indexing,
-        enabled: csvAsProse,
-      ),
     Optimization(
       'Query condensing',
       'Shorten and optimize long questions first',

@@ -87,7 +87,6 @@ that are on:
 | Switch | normal | optimized | What it fixes |
 |---|---|---|---|
 | `chunkSize` | 1200 | 600 | short questions match small chunks (6/12 vs 10/12 retrieve) |
-| `csvAsProse` | off | (not used) | `location: Victoria Island. units_sold: 41.` embeds; a raw CSV line doesn't. Optimized doesn't embed CSVs at all, so its card leaves this out |
 | `useToolCalling` | off | on | CSVs aren't embedded; the model calls a `calculate` tool that computes over every row, instead of adding up 5 chunks |
 | `condenseQueries` | off | on | long questions rewritten into a short search query |
 | `maxChunksPerSource` | none | 2 | no one file fills every slot (under normal, the 240-row CSV does) |
