@@ -144,6 +144,94 @@ void main() {
     });
   });
 
+  // The shapes below are what gpt-oss actually sent, live.
+  group('other spellings models use', () {
+    const january = {
+      'table': 'sales_q1_2026.csv',
+      'aggregate': 'sum',
+      'measure': 'revenue_ngn',
+      'from': '2026-01-01',
+      'to': '2026-01-31',
+    };
+    // Ikeja City Mall in January 2026, from awk.
+    const ikejaJanuary = 14572500;
+
+    test('field, operator and value', () {
+      final outcome = calculate({
+        ...january,
+        'filters': [
+          {'field': 'location', 'operator': '=', 'value': 'Ikeja City Mall'},
+        ],
+      });
+      expect(outcome.result!.value, ikejaJanuary);
+    });
+
+    test('a filter written as text', () {
+      final outcome = calculate({
+        ...january,
+        'filters': ['location=Ikeja City Mall'],
+      });
+      expect(outcome.result!.value, ikejaJanuary);
+    });
+
+    test('empty strings mean left out', () {
+      final outcome = calculate({
+        ...january,
+        'group_by': '',
+        'per': '',
+        'conditions': <Object>[],
+      });
+      expect(outcome.result!.value, kJanuaryRevenue);
+      final open = calculate({
+        'table': 'sales_q1_2026.csv',
+        'aggregate': 'sum',
+        'measure': 'revenue_ngn',
+        'from': '',
+        'to': '',
+      });
+      expect(open.result!.value, kQ1Revenue);
+    });
+
+    test('a filter it cannot read is refused, never skipped', () {
+      for (final filters in [
+        ['Ikeja City Mall'],
+        [42],
+        'location=Ikeja City Mall',
+        [
+          {
+            'column': 'location',
+            'op': '>=',
+            'values': ['Online'],
+          },
+        ],
+      ]) {
+        final outcome = calculate({...january, 'filters': filters});
+        expect(outcome.succeeded, isFalse, reason: '$filters');
+        expect(outcome.error, contains('Each filter must look like'));
+      }
+    });
+
+    test('a condition on the date column points to from and to', () {
+      final outcome = calculate({
+        ...january,
+        'conditions': ['week_starting >= 2026'],
+      });
+      expect(outcome.error, contains('Limit dates with "from" and "to"'));
+      final unreadable = calculate({
+        ...january,
+        'conditions': ['units_sold is big'],
+      });
+      expect(unreadable.error, contains('Each condition must look like'));
+      final dated = calculate({
+        ...january,
+        'conditions': [
+          {'column': 'week_starting', 'op': '>=', 'value': 20260101},
+        ],
+      });
+      expect(dated.error, contains('Limit dates with "from" and "to"'));
+    });
+  });
+
   group('calls that cannot run say why', () {
     String errorFor(Map<String, dynamic> arguments) =>
         calculate({'table': 'sales_q1_2026.csv', ...arguments}).error!;

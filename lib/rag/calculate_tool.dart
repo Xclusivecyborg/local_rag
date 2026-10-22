@@ -266,7 +266,9 @@ class CalculateTool {
     }
 
     final filters = <ColumnFilter>[];
-    for (final raw in _list(arguments['filters'])) {
+    final rawFilters = _items(arguments['filters'], _filterFromText);
+    if (rawFilters == null) return fail(_filterShape);
+    for (final raw in rawFilters) {
       final column = table.column('${raw['column']}');
       if (column != null && column.kind == ColumnKind.date) {
         return fail(
@@ -280,12 +282,15 @@ class CalculateTool {
           'columns: ${table.textColumns.map((c) => c.name).join(', ')}.',
         );
       }
-      final op = raw['op'] ?? 'is';
-      if (op != 'is' && op != 'is_not') {
-        return fail('A filter "op" must be "is" or "is_not".');
-      }
+      final op = switch (raw['op'] ?? 'is') {
+        'is' || '=' || '==' => 'is',
+        'is_not' || '!=' || 'not' => 'is_not',
+        _ => null,
+      };
+      if (op == null) return fail(_filterShape);
       final values = <String>[];
-      for (final value in (raw['values'] as List? ?? const [])) {
+      final listed = raw['values'] ?? raw['value'];
+      for (final value in listed is List ? listed : [?listed]) {
         final known = _matchValue(table, column, '$value');
         if (known == null) {
           return fail(_unknownValue(table, column, '$value'));
@@ -299,8 +304,16 @@ class CalculateTool {
     }
 
     final conditions = <NumberCondition>[];
-    for (final raw in _list(arguments['conditions'])) {
+    final rawConditions = _items(arguments['conditions'], _conditionFromText);
+    if (rawConditions == null) return fail(_conditionShape);
+    for (final raw in rawConditions) {
       final column = '${raw['column']}';
+      if (table.column(column)?.kind == ColumnKind.date) {
+        return fail(
+          '"$column" is a date column. Limit dates with "from" and "to" '
+          '(YYYY-MM-DD), not a condition.',
+        );
+      }
       if (!_isNumber(table, column)) {
         return fail('"$column" is not a number column in ${table.source}.');
       }
@@ -319,8 +332,8 @@ class CalculateTool {
 
     final from = _date(arguments['from']);
     final to = _date(arguments['to']);
-    if (arguments['from'] != null && from == null ||
-        arguments['to'] != null && to == null) {
+    if (_given(arguments['from']) && from == null ||
+        _given(arguments['to']) && to == null) {
       return fail('"from" and "to" must be dates written YYYY-MM-DD.');
     }
     DateRange? range;
@@ -351,11 +364,67 @@ class CalculateTool {
     );
   }
 
-  static List<Map<String, dynamic>> _list(Object? raw) => [
-    if (raw is List)
-      for (final item in raw)
-        if (item is Map<String, dynamic>) item,
-  ];
+  static const String _filterShape =
+      'Each filter must look like {"column": "location", "op": "is", '
+      '"values": ["Online"]}, with "op" "is" or "is_not".';
+
+  static const String _conditionShape =
+      'Each condition must look like {"column": "units_sold", "op": ">=", '
+      '"value": 40}.';
+
+  /// Whether the model filled in [raw], counting "" as left out.
+  static bool _given(Object? raw) =>
+      raw != null && !(raw is String && raw.trim().isEmpty);
+
+  /// The items of a `filters` or `conditions` list in one spelling, or null
+  /// if any item cannot be read, so nothing the model asked for is silently
+  /// dropped. Models often write `field`, `operator` and `value`, or a
+  /// string such as "location=Online"; both mean the same thing.
+  static List<Map<String, dynamic>>? _items(
+    Object? raw,
+    Map<String, dynamic>? Function(String) fromText,
+  ) {
+    if (!_given(raw)) return const [];
+    if (raw is! List) return null;
+    final items = <Map<String, dynamic>>[];
+    for (final item in raw) {
+      final read = switch (item) {
+        Map<String, dynamic>() => {
+          'column': item['column'] ?? item['field'],
+          'op': item['op'] ?? item['operator'],
+          'values': item['values'],
+          'value': item['value'],
+        },
+        String() => fromText(item),
+        _ => null,
+      };
+      if (read == null || read['column'] == null) return null;
+      items.add(read);
+    }
+    return items;
+  }
+
+  static final RegExp _filterText = RegExp(
+    r'^\s*([\w ]+?)\s*(!=|==|=)\s*(.+)$',
+  );
+
+  /// "location=Online" or "product_line != Heritage".
+  static Map<String, dynamic>? _filterFromText(String text) {
+    final m = _filterText.firstMatch(text);
+    if (m == null) return null;
+    return {'column': m[1], 'op': m[2], 'values': m[3]!.trim()};
+  }
+
+  static final RegExp _conditionText = RegExp(
+    r'^\s*(\w+)\s*(>=|<=|>|<)\s*(-?[\d.]+)\s*$',
+  );
+
+  /// "units_sold >= 40".
+  static Map<String, dynamic>? _conditionFromText(String text) {
+    final m = _conditionText.firstMatch(text);
+    if (m == null) return null;
+    return {'column': m[1], 'op': m[2], 'value': m[3]};
+  }
 
   static bool _isNumber(CsvTable table, String name) =>
       table.column(name)?.kind == ColumnKind.number;
