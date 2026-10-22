@@ -1,4 +1,4 @@
-// Naive RAG vs optimized RAG, on the same questions, through the same code.
+// Normal RAG vs optimized RAG, on the same questions, through the same code.
 //
 //   flutter test tool/retrieval_quality/before_after.dart
 //   EMBED=mxbai-embed-large:latest flutter test tool/retrieval_quality/before_after.dart
@@ -152,12 +152,12 @@ Future<Map<String, Object?>> evaluate(
 Future<void> _run() async {
   final ollama = OllamaClient();
   final results = [
-    for (final recipe in [RagRecipe.naive, RagRecipe.optimized])
+    for (final recipe in [RagRecipe.normal, RagRecipe.optimized])
       await evaluate(ollama, recipe),
   ];
   ollama.close();
 
-  stdout.writeln('\n── Naive vs optimized ($embedModel, $chatModel) ──');
+  stdout.writeln('\n── Normal vs optimized ($embedModel, $chatModel) ──');
   String pct(Map s, String hit, String total) =>
       '${(s[hit] / s[total] * 100).round()}% (${s[hit]}/${s[total]})';
   for (final r in results) {
@@ -186,7 +186,7 @@ Future<void> _run() async {
 
 void main() {
   test(
-    'naive vs optimized RAG',
+    'normal vs optimized RAG',
     _run,
     timeout: const Timeout(Duration(minutes: 60)),
   );

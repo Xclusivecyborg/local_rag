@@ -178,7 +178,7 @@ class RagController extends ChangeNotifier {
   /// both are using the current recipe's pipeline and index.
   bool get canSwitchRecipe => !isStreaming && !isIndexing;
 
-  /// Switches between recipes while the app runs, e.g. naive to optimized.
+  /// Switches between recipes while the app runs, e.g. normal to optimized.
   ///
   /// Each recipe chunks differently, so each has its own index: the current
   /// one is closed and the new recipe's saved index is opened. The

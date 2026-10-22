@@ -1,6 +1,6 @@
 /// Which RAG this app runs: every optimization is one switch here.
 ///
-/// [naive] is the pipeline every tutorial builds: split, embed, take the top
+/// [normal] is the pipeline every tutorial builds: split, embed, take the top
 /// five, paste them into the prompt. [optimized] is the same pipeline with
 /// each fix this project measured turned on. Both run through the same
 /// [RagPipeline], so any difference in their answers comes from these
@@ -67,8 +67,8 @@ class RagRecipe {
   final int topK;
 
   /// The tutorial pipeline, with every optimization off.
-  static const RagRecipe naive = RagRecipe(
-    name: 'naive',
+  static const RagRecipe normal = RagRecipe(
+    name: 'normal',
     chunkSize: 1200,
     csvAsProse: false,
     useToolCalling: false,
@@ -188,7 +188,7 @@ class Optimization {
   final bool enabled;
 
   /// The value it runs with, e.g. "600 chars", shown even when the
-  /// optimization is off if the naive value teaches something (1200 chars).
+  /// optimization is off if the normal value teaches something (1200 chars).
   /// Null when there is none.
   final String? setting;
 }

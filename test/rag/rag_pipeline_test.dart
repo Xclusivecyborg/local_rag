@@ -114,8 +114,8 @@ void main() {
     return (store: result.index, tables: result.tables);
   }
 
-  test('naive indexes raw CSV lines and keeps no tables', () async {
-    final index = await ingest(RagRecipe.naive);
+  test('normal indexes raw CSV lines and keeps no tables', () async {
+    final index = await ingest(RagRecipe.normal);
     expect(index.tables, isEmpty);
 
     final hits = index.store.search(docVector, k: 10);
@@ -132,9 +132,9 @@ void main() {
     expect(hits.where((h) => h.chunk.source == 'returns.md'), isNotEmpty);
   });
 
-  test('naive pastes excerpts into every question, even "Hello"', () async {
-    final index = await ingest(RagRecipe.naive);
-    final prompt = await RagPipeline(fakeOllama(), recipe: RagRecipe.naive)
+  test('normal pastes excerpts into every question, even "Hello"', () async {
+    final index = await ingest(RagRecipe.normal);
+    final prompt = await RagPipeline(fakeOllama(), recipe: RagRecipe.normal)
         .prepare(
           question: 'Hello',
           chatModel: 'test-chat',
@@ -142,7 +142,7 @@ void main() {
           index: index.store,
         );
 
-    expect(prompt.threshold, isNull, reason: 'naive has no relevance gate');
+    expect(prompt.threshold, isNull, reason: 'normal has no relevance gate');
     expect(prompt.grounded, isTrue);
     expect(prompt.sources, isNotEmpty);
     expect(prompt.messages.last.content, contains('EXCERPTS'));
@@ -165,7 +165,7 @@ void main() {
     expect(prompt.messages.last.content, 'Hello');
   });
 
-  test('optimized lets the model calculate; naive never offers it', () async {
+  test('optimized lets the model calculate; normal never offers it', () async {
     // Short, so the search condenser leaves it alone and every chat
     // request below is the answer.
     const question = 'Total revenue in January 2026?';
@@ -210,22 +210,22 @@ void main() {
     expect(chats.last, contains('Total revenue_ngn in January 2026: 3,500'));
     expect(prompt.messages.first.content, contains('TABLES YOU CAN CALCULATE'));
 
-    final naive = await ingest(RagRecipe.naive);
-    final naiveOffered = <bool>[];
-    final naivePipeline = RagPipeline(
-      fakeOllama(toolsOffered: naiveOffered, calculateArguments: january),
-      recipe: RagRecipe.naive,
+    final normal = await ingest(RagRecipe.normal);
+    final normalOffered = <bool>[];
+    final normalPipeline = RagPipeline(
+      fakeOllama(toolsOffered: normalOffered, calculateArguments: january),
+      recipe: RagRecipe.normal,
     );
-    final retrieved = await naivePipeline.prepare(
+    final retrieved = await normalPipeline.prepare(
       question: question,
       chatModel: 'test-chat',
       embeddingModel: embedModel,
-      index: naive.store,
-      // Even handed a table, naive does not use it.
+      index: normal.store,
+      // Even handed a table, normal does not use it.
       tables: optimized.tables,
     );
-    await naivePipeline.generate('test-chat', retrieved).drain<void>();
-    expect(naiveOffered, [false]);
+    await normalPipeline.generate('test-chat', retrieved).drain<void>();
+    expect(normalOffered, [false]);
     expect(retrieved.computed, isNull);
     expect(retrieved.grounded, isTrue);
   });
@@ -268,7 +268,7 @@ void main() {
     const longQuestion =
         'Can you tell me please what the returns window is for the Heritage '
         'line if I bought it last month?';
-    for (final recipe in [RagRecipe.naive, RagRecipe.optimized]) {
+    for (final recipe in [RagRecipe.normal, RagRecipe.optimized]) {
       final index = await ingest(recipe);
       final chats = <String>[];
       final prompt =
@@ -294,8 +294,8 @@ void main() {
     }
   });
 
-  test('naive gets the tutorial prompt, optimized the guarded one', () async {
-    for (final recipe in [RagRecipe.naive, RagRecipe.optimized]) {
+  test('normal gets the tutorial prompt, optimized the guarded one', () async {
+    for (final recipe in [RagRecipe.normal, RagRecipe.optimized]) {
       final index = await ingest(recipe);
       final prompt = await RagPipeline(fakeOllama(), recipe: recipe).prepare(
         question: 'Hello',
@@ -357,7 +357,7 @@ void main() {
     expect(sent.last, contains('was not valid JSON'));
   });
 
-  test('optimized asks for missing details; naive does not', () {
+  test('optimized asks for missing details; normal does not', () {
     const rule = 'Ask for the missing detail';
     bool asks({required bool grounded}) => RagPrompts.system(
       grounded: grounded,
@@ -373,7 +373,7 @@ void main() {
         guarded: false,
       ).contains(rule),
       isFalse,
-      reason: 'naive',
+      reason: 'normal',
     );
   });
 
@@ -395,7 +395,10 @@ void main() {
 
   test('each recipe has its own index folder', () {
     expect(RagRecipe.optimized.indexFolder, 'objectbox');
-    expect(RagRecipe.naive.indexFolder, isNot(RagRecipe.optimized.indexFolder));
-    expect(RagRecipe.naive.tablesFile, isNot(RagRecipe.optimized.tablesFile));
+    expect(
+      RagRecipe.normal.indexFolder,
+      isNot(RagRecipe.optimized.indexFolder),
+    );
+    expect(RagRecipe.normal.tablesFile, isNot(RagRecipe.optimized.tablesFile));
   });
 }

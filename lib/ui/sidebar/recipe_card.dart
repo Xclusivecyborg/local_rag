@@ -6,13 +6,13 @@ import 'package:local_rag/ui/widgets/panel.dart';
 /// Which RAG is running, and which optimizations it has.
 ///
 /// The app starts with the recipe chosen in lib/main.dart; the switch in the
-/// header flips between naive and optimized while it runs. The badge, the
+/// header flips between normal and optimized while it runs. The badge, the
 /// meter and every row change together, so nobody has to take it on trust.
 class RecipeCard extends StatelessWidget {
   const RecipeCard({super.key, required this.recipe, this.onOptimizedChanged});
   final RagRecipe recipe;
 
-  /// Called with true for optimized, false for naive. Null disables the
+  /// Called with true for optimized, false for normal. Null disables the
   /// switch, e.g. while an answer is streaming.
   final ValueChanged<bool>? onOptimizedChanged;
 
@@ -217,7 +217,7 @@ class _SwitchHint extends StatelessWidget {
   }
 }
 
-/// The naive / optimized toggle, labelled so it reads as a control.
+/// The normal / optimized toggle, labelled so it reads as a control.
 class _OptimizeSwitch extends StatelessWidget {
   const _OptimizeSwitch({required this.value, required this.onChanged});
   final bool value;
@@ -227,7 +227,7 @@ class _OptimizeSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     final hint = Theme.of(context).hintColor;
     return Tooltip(
-      message: value ? 'Switch to naive RAG' : 'Turn on every optimization',
+      message: value ? 'Switch to normal RAG' : 'Turn on every optimization',
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
