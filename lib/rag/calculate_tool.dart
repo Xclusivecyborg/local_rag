@@ -120,11 +120,13 @@ class CalculateTool {
         },
         'from': {
           'type': 'string',
-          'description': 'First day to include, YYYY-MM-DD.',
+          'description':
+              'First day to include, YYYY-MM-DD. The only way to limit dates.',
         },
         'to': {
           'type': 'string',
-          'description': 'Last day to include, YYYY-MM-DD.',
+          'description':
+              'Last day to include, YYYY-MM-DD. The only way to limit dates.',
         },
         'group_by': {
           'type': 'string',
