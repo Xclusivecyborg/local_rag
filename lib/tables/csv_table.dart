@@ -83,12 +83,16 @@ class CsvTable {
   }
 
   /// Runs [query] over every row. Null if the query names an unknown column,
-  /// or a condition on a column that is not numeric.
+  /// a condition on a column that is not numeric, or both
+  /// [TableQuery.groupBy] and [TableQuery.per].
   QueryResult? aggregate(TableQuery query) {
     final isCount = query.aggregate == Aggregate.count;
     final metric = query.metric == null ? null : column(query.metric!);
-    if (!isCount && metric == null) return null;
-    final grouping = query.groupBy;
+    if (query.metric != null && metric == null) return null;
+    // Per a group, a missing metric means counting rows in each group.
+    if (!isCount && metric == null && query.per == null) return null;
+    if (query.per != null && query.groupBy != null) return null;
+    final grouping = query.per ?? query.groupBy;
     if (grouping != null && !_canGroupBy(grouping)) return null;
     if (query.filters.any((f) => column(f.column) == null)) return null;
     final numeric = query.conditions.every(
@@ -100,6 +104,8 @@ class CsvTable {
       for (var r = 0; r < rows.length; r++)
         if (_matches(r, query)) r,
     ];
+    if (query.per != null) return _aggregatePer(query, metric, matched);
+
     final values = <num>[];
     final groupValues = <String, List<num>>{};
     int? extremeRow;
@@ -140,6 +146,41 @@ class CsvTable {
                 if (cell(extremeRow, c).isNotEmpty) c.name: cell(extremeRow, c),
             }
           : null,
+    );
+  }
+
+  /// [TableQuery.per]: a total for each group first (a row count when there
+  /// is no metric), then the aggregate across those totals. "Average revenue
+  /// per month" is the average of three monthly totals, not of every row.
+  QueryResult _aggregatePer(
+    TableQuery query,
+    CsvColumn? metric,
+    List<int> matched,
+  ) {
+    final per = query.per!;
+    final totals = <String, num>{};
+    for (final r in matched) {
+      final n = metric == null ? 1 : number(r, metric);
+      final key = _groupKey(r, per);
+      if (n == null || key == null) continue;
+      totals[key] = (totals[key] ?? 0) + n;
+    }
+    final value = query.aggregate == Aggregate.count
+        ? totals.length
+        : _reduce(query.aggregate, totals.values.toList());
+    final isExtreme =
+        query.aggregate == Aggregate.min || query.aggregate == Aggregate.max;
+    final top = isExtreme && totals.isNotEmpty
+        ? totals.entries.firstWhere((e) => e.value == value).key
+        : null;
+    return QueryResult(
+      query: query,
+      source: source,
+      value: value,
+      matchedRows: matched.length,
+      totalRows: rows.length,
+      groups: totals,
+      extremeRow: top == null ? null : {TableQuery.labelFor(per): top},
     );
   }
 
@@ -326,9 +367,10 @@ class TableQuery {
     this.conditions = const [],
     this.range,
     this.groupBy,
+    this.per,
   });
 
-  /// Pass as [groupBy] to group by the month of the date column.
+  /// Pass as [groupBy] or [per] to group by the month of the date column.
   static const String month = '@month';
 
   final Aggregate aggregate;
@@ -340,7 +382,11 @@ class TableQuery {
   /// A column (or [month]) to break the result down by, one figure each.
   final String? groupBy;
 
-  /// How [groupBy] reads in a description: `month` for [month].
+  /// A column (or [month]) to total by first, so [aggregate] runs over the
+  /// totals: "average revenue per month", "location with the most revenue".
+  final String? per;
+
+  /// How [groupBy] and [per] read in a description: `month` for [month].
   static String labelFor(String grouping) =>
       grouping == month ? 'month' : grouping;
 
@@ -362,7 +408,14 @@ class TableQuery {
         : ' where ${conditions.map((c) => c.describe()).join(' and ')}';
     final when = range == null ? '' : ' in ${range!.label}';
     final by = groupBy == null ? '' : ', by ${labelFor(groupBy!)}';
-    return '$verb$what$where$conditional$when$by';
+    final rest = '$where$conditional$when$by';
+    if (per != null) {
+      final unit = labelFor(per!);
+      if (aggregate == Aggregate.count) return 'Number of ${unit}s$rest';
+      final each = metric == null ? 'record count' : 'total$what';
+      return '$verb of each $unit\'s $each$rest';
+    }
+    return '$verb$what$rest';
   }
 }
 
@@ -419,16 +472,16 @@ class QueryResult {
       );
     final row = extremeRow;
     if (row != null) {
+      final pairs = row.entries.map((e) => '${e.key}=${e.value}').join(', ');
       buffer.writeln(
-        'Found in the row: '
-        '${row.entries.map((e) => '${e.key}=${e.value}').join(', ')}',
+        query.per == null ? 'Found in the row: $pairs' : 'Belongs to: $pairs',
       );
     }
     final g = groups;
     if (g != null && g.isNotEmpty) {
-      buffer.writeln('Breakdown:');
+      buffer.writeln(query.per == null ? 'Breakdown:' : 'Totals:');
       // Months in order; anything else largest first, to answer "which most".
-      final byMonth = query.groupBy == TableQuery.month;
+      final byMonth = (query.per ?? query.groupBy) == TableQuery.month;
       final keys = g.keys.toList()
         ..sort(byMonth ? null : (a, b) => g[b]!.compareTo(g[a]!));
       for (final key in keys) {

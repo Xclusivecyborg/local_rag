@@ -314,5 +314,60 @@ void main() {
         stringContainsInOrder(['2026-01', '2026-02', '2026-03']),
       );
     });
+
+    test('average per month averages the monthly totals', () {
+      final result = run(
+        const TableQuery(
+          aggregate: Aggregate.average,
+          metric: 'revenue_ngn',
+          per: TableQuery.month,
+        ),
+      );
+      // Not the average row, which is about 853,085.
+      expect(result.value, closeTo(kQ1Revenue / 3, 0.01));
+      expect(
+        result.query.describe(),
+        "Average of each month's total revenue_ngn",
+      );
+    });
+
+    test('the most per location compares location totals', () {
+      final result = run(
+        const TableQuery(
+          aggregate: Aggregate.max,
+          metric: 'revenue_ngn',
+          per: 'location',
+        ),
+      );
+      expect(result.value, 67647000);
+      expect(result.extremeRow, {'location': 'Victoria Island'});
+      final block = result.toPromptBlock();
+      expect(block, contains('Belongs to: location=Victoria Island'));
+      // Totals largest first.
+      expect(
+        block,
+        stringContainsInOrder(['Victoria Island', 'Ikeja City Mall', 'Online']),
+      );
+    });
+
+    test('counting per month counts the months', () {
+      final result = run(
+        const TableQuery(aggregate: Aggregate.count, per: TableQuery.month),
+      );
+      expect(result.value, 3);
+      expect(result.query.describe(), 'Number of months');
+      expect(
+        sales.aggregate(
+          const TableQuery(
+            aggregate: Aggregate.sum,
+            metric: 'revenue_ngn',
+            groupBy: 'location',
+            per: TableQuery.month,
+          ),
+        ),
+        isNull,
+        reason: 'groupBy and per together are refused',
+      );
+    });
   });
 }
