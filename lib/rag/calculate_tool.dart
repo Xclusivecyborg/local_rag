@@ -1,5 +1,5 @@
 import 'package:local_rag/tables/csv_table.dart';
-import 'package:rag_blocks/rag_blocks.dart' show Tool;
+import 'package:rag_blocks/rag_blocks.dart' show Tool, ToolCall;
 
 /// Lets a chat model ask for exact figures from CSV tables by tool calling.
 ///
@@ -17,7 +17,14 @@ import 'package:rag_blocks/rag_blocks.dart' show Tool;
 ///   ],
 ///   tools: [calculator.definition],
 /// );
+/// for (final call in reply.toolCalls) {
+///   final result = calculator.run(call); // send back as a tool result
+/// }
 /// ```
+///
+/// A request that cannot run comes back as a [CalculateOutcome] whose text
+/// says why, such as "no location called Ikeja; did you mean Ikeja City
+/// Mall?", so the model can correct itself or ask the user.
 class CalculateTool {
   CalculateTool(this.tables, {this.maxListedValues = 30});
 
@@ -180,7 +187,266 @@ class CalculateTool {
     }
   }
 
+  /// Checks [call] and runs it. Never throws: a request that cannot run
+  /// gets an outcome explaining why, worded for the model to act on.
+  CalculateOutcome run(ToolCall call) {
+    if (call.name != name) {
+      return CalculateOutcome.error('There is no tool called "${call.name}".');
+    }
+    final parsed = parse(call.arguments);
+    if (parsed.error != null) return CalculateOutcome.error(parsed.error!);
+    final (table, query) = parsed.request!;
+    final result = table.aggregate(query);
+    if (result == null) {
+      return CalculateOutcome.error('That calculation could not be run.');
+    }
+    if (result.isEmpty) {
+      return CalculateOutcome.error(
+        'No rows match: ${query.describe()}. ${_coverage(table)}',
+      );
+    }
+    return CalculateOutcome.success(result);
+  }
+
+  /// The table and query [arguments] ask for, or an error saying what is
+  /// wrong with them.
+  ({(CsvTable, TableQuery)? request, String? error}) parse(
+    Map<String, dynamic> arguments,
+  ) {
+    ({(CsvTable, TableQuery)? request, String? error}) fail(String why) =>
+        (request: null, error: why);
+
+    final tableName = arguments['table'];
+    final table = tables.where((t) => t.source == tableName).firstOrNull;
+    if (table == null) {
+      return fail(
+        'There is no table called "$tableName". Tables: '
+        '${tables.map((t) => t.source).join(', ')}.',
+      );
+    }
+
+    final aggregateName = arguments['aggregate'];
+    final aggregate = Aggregate.values
+        .where((a) => a.name == aggregateName)
+        .firstOrNull;
+    if (aggregate == null) {
+      return fail(
+        '"aggregate" must be one of '
+        '${Aggregate.values.map((a) => a.name).join(', ')}.',
+      );
+    }
+
+    final measure = arguments['measure'] as String?;
+    if (measure != null && !_isNumber(table, measure)) {
+      return fail(
+        '"$measure" is not a number column in ${table.source}. Number '
+        'columns: ${table.numericColumns.map((c) => c.name).join(', ')}.',
+      );
+    }
+    final per = _grouping(arguments['per']);
+    final groupBy = _grouping(arguments['group_by']);
+    if (measure == null && aggregate != Aggregate.count && per == null) {
+      return fail('Say which "measure" to ${aggregate.name}.');
+    }
+    if (per != null && groupBy != null) {
+      return fail('Use "per" or "group_by", not both.');
+    }
+    for (final grouping in [?per, ?groupBy]) {
+      final error = _checkGrouping(table, grouping);
+      if (error != null) return fail(error);
+    }
+
+    final filters = <ColumnFilter>[];
+    for (final raw in _list(arguments['filters'])) {
+      final column = table.column('${raw['column']}');
+      if (column == null || column.kind != ColumnKind.text) {
+        return fail(
+          '"${raw['column']}" is not a text column in ${table.source}. Text '
+          'columns: ${table.textColumns.map((c) => c.name).join(', ')}.',
+        );
+      }
+      final op = raw['op'] ?? 'is';
+      if (op != 'is' && op != 'is_not') {
+        return fail('A filter "op" must be "is" or "is_not".');
+      }
+      final values = <String>[];
+      for (final value in (raw['values'] as List? ?? const [])) {
+        final known = _matchValue(table, column, '$value');
+        if (known == null) {
+          return fail(_unknownValue(table, column, '$value'));
+        }
+        values.add(known);
+      }
+      if (values.isEmpty) return fail('A filter needs at least one value.');
+      filters.add(
+        ColumnFilter.anyOf(column.name, values, exclude: op == 'is_not'),
+      );
+    }
+
+    final conditions = <NumberCondition>[];
+    for (final raw in _list(arguments['conditions'])) {
+      final column = '${raw['column']}';
+      if (!_isNumber(table, column)) {
+        return fail('"$column" is not a number column in ${table.source}.');
+      }
+      final comparison = Comparison.fromSymbol('${raw['op']}');
+      if (comparison == null) {
+        return fail(
+          'A condition "op" must be one of '
+          '${Comparison.values.map((c) => c.symbol).join(', ')}.',
+        );
+      }
+      final value = raw['value'];
+      final number = value is num ? value : num.tryParse('$value');
+      if (number == null) return fail('A condition "value" must be a number.');
+      conditions.add(NumberCondition(column, comparison, number));
+    }
+
+    final from = _date(arguments['from']);
+    final to = _date(arguments['to']);
+    if (arguments['from'] != null && from == null ||
+        arguments['to'] != null && to == null) {
+      return fail('"from" and "to" must be dates written YYYY-MM-DD.');
+    }
+    DateRange? range;
+    if (from != null || to != null) {
+      if (table.dateColumn == null) {
+        return fail('${table.source} has no date column to limit by.');
+      }
+      final start = from ?? DateTime(0);
+      final end = (to ?? DateTime(9999)).add(const Duration(days: 1));
+      if (!start.isBefore(end)) return fail('"from" must not be after "to".');
+      range = DateRange(start, end, _label(from, to));
+    }
+
+    return (
+      request: (
+        table,
+        TableQuery(
+          aggregate: aggregate,
+          metric: measure,
+          filters: filters,
+          conditions: conditions,
+          range: range,
+          groupBy: groupBy,
+          per: per,
+        ),
+      ),
+      error: null,
+    );
+  }
+
+  static List<Map<String, dynamic>> _list(Object? raw) => [
+    if (raw is List)
+      for (final item in raw)
+        if (item is Map<String, dynamic>) item,
+  ];
+
+  static bool _isNumber(CsvTable table, String name) =>
+      table.column(name)?.kind == ColumnKind.number;
+
+  /// `month` becomes [TableQuery.month]; anything else is a column name.
+  static String? _grouping(Object? raw) {
+    if (raw is! String || raw.isEmpty) return null;
+    return raw == monthWord ? TableQuery.month : raw;
+  }
+
+  static String? _checkGrouping(CsvTable table, String grouping) {
+    if (grouping == TableQuery.month) {
+      return table.dateColumn == null
+          ? '${table.source} has no date column to group by month.'
+          : null;
+    }
+    return table.column(grouping)?.kind == ColumnKind.text
+        ? null
+        : '"$grouping" is not a text column in ${table.source}. Group by '
+              '${[...table.textColumns.map((c) => c.name), monthWord].join(', ')}.';
+  }
+
+  /// The value as the table spells it, ignoring case, or null.
+  static String? _matchValue(CsvTable table, CsvColumn column, String value) =>
+      table
+          .distinctValues(column)
+          .where((v) => v.toLowerCase() == value.trim().toLowerCase())
+          .firstOrNull;
+
+  String _unknownValue(CsvTable table, CsvColumn column, String value) {
+    final asked = value.trim().toLowerCase();
+    final close = [
+      for (final v in table.distinctValues(column))
+        if (v.toLowerCase().contains(asked) || asked.contains(v.toLowerCase()))
+          v,
+    ];
+    if (close.isNotEmpty) {
+      return 'There is no ${column.name} called "$value". Did you mean '
+          '${close.join(' or ')}? Ask the user if it is not clear.';
+    }
+    final all = table.distinctValues(column).toList()..sort();
+    final listed = all.length <= maxListedValues
+        ? all.join(', ')
+        : '${all.take(5).join(', ')} and ${all.length - 5} more';
+    return 'There is no ${column.name} called "$value". Values: $listed.';
+  }
+
+  String _coverage(CsvTable table) {
+    final column = table.dateColumn;
+    if (column == null) return '';
+    final dates = [
+      for (var r = 0; r < table.rowCount; r++) ?table.date(r, column),
+    ]..sort();
+    if (dates.isEmpty) return '';
+    return '${table.source} covers ${_day(dates.first)} to '
+        '${_day(dates.last)}.';
+  }
+
+  static final RegExp _isoDay = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+
+  static DateTime? _date(Object? raw) {
+    if (raw is! String || !_isoDay.hasMatch(raw.trim())) return null;
+    final d = DateTime.tryParse(raw.trim());
+    return d == null ? null : DateTime(d.year, d.month, d.day);
+  }
+
   static String _day(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';
+
+  static const List<String> _monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June', 'July', //
+    'August', 'September', 'October', 'November', 'December',
+  ];
+
+  /// "January 2026", "Q1 2026" or "2026" when the dates are exactly that
+  /// period, so the answer reads naturally; otherwise the dates themselves.
+  static String _label(DateTime? from, DateTime? to) {
+    if (from == null) return 'up to ${_day(to!)}';
+    if (to == null) return 'from ${_day(from)}';
+    final lastDay = to.add(const Duration(days: 1));
+    if (from.day == 1 && lastDay.day == 1) {
+      final months =
+          (lastDay.year - from.year) * 12 + lastDay.month - from.month;
+      if (months == 1) return '${_monthNames[from.month - 1]} ${from.year}';
+      if (months == 3 && (from.month - 1) % 3 == 0) {
+        return 'Q${(from.month - 1) ~/ 3 + 1} ${from.year}';
+      }
+      if (months == 12 && from.month == 1) return '${from.year}';
+    }
+    return '${_day(from)} to ${_day(to)}';
+  }
+}
+
+/// What running a [CalculateTool] request produced: a result, or an error
+/// the model can act on. [text] is what to send back as the tool result.
+class CalculateOutcome {
+  CalculateOutcome.success(QueryResult this.result)
+    : text = result.toPromptBlock(),
+      error = null;
+
+  CalculateOutcome.error(String this.error) : text = error, result = null;
+
+  final QueryResult? result;
+  final String? error;
+  final String text;
+
+  bool get succeeded => result != null;
 }
