@@ -100,7 +100,7 @@ class ShowcaseQuestion {
 }
 
 /// Questions the normal recipe gets wrong and the optimized one gets right,
-/// found by asking each under both with gpt-oss, plus three controls.
+/// found by asking each under both with gpt-oss, plus four controls.
 ///
 /// Totals were computed with awk straight from sales_q1_2026.csv, not by the
 /// app, so a bug in the calculation cannot also hide in the expected value.
@@ -121,12 +121,6 @@ const List<ShowcaseQuestion> showcase = [
     'Which location sold the most units in March 2026?',
     fixedBy: ['Tool calling'],
     passIf: ['453'],
-  ),
-  ShowcaseQuestion(
-    'As a Stridewell employee, what discount would I get on a pair of Formal '
-    'shoes that costs 100,000 naira?',
-    fixedBy: [],
-    passIf: ['40%', '40 %', '40000', '60000'],
   ),
   ShowcaseQuestion(
     'How much did Ikeja make?',
@@ -162,6 +156,14 @@ const List<ShowcaseQuestion> showcase = [
     'Who is the primary contact at Aba Leatherworks?',
     fixedBy: [],
     passIf: ['emeka okafor'],
+  ),
+  // Split at headings in both recipes, so the discount section is found by
+  // either.
+  ShowcaseQuestion(
+    'As a Stridewell employee, what discount would I get on a pair of Formal '
+    'shoes that costs 100,000 naira?',
+    fixedBy: [],
+    passIf: ['40%', '40 %', '40000', '60000'],
   ),
   ShowcaseQuestion('Hello', fixedBy: [], passIf: ['hi', 'hello']),
 ];
