@@ -86,13 +86,18 @@ that are on:
 
 | Switch | normal | optimized | What it fixes |
 |---|---|---|---|
-| `chunkSize` | 1200 | 600 | short questions match small chunks (6/12 vs 10/12 retrieve) |
 | `useToolCalling` | off | on | CSVs aren't embedded; the model calls a `calculate` tool that computes over every row, instead of adding up 5 chunks |
 | `condenseQueries` | off | on | long questions rewritten into a short search query |
 | `maxChunksPerSource` | none | 2 | no one file fills every slot (under normal, the 240-row CSV does) |
 | `relevanceGate` | off | on | "Hello" gets a greeting, not the returns policy |
 | `strictGrounding` | off | on | the model won't estimate a total from a partial sample, and asks for a missing detail (a year, a measure) instead of refusing |
 | `fineTunedPrompt` | off | on | `optimized_prompt.dart` forbids inventing company facts; normal gets `normal_prompt.dart`, the tutorial's "answer using the excerpts" |
+
+Both recipes chunk the same way: 600 characters with 200 overlap, and markdown
+a section at a time, so no chunk mixes two topics. Chunk size isn't one of the
+switches because it's a trade-off to tune, not a fix: 600 retrieves more short
+questions than 1200, but a 1200-character chunk sometimes holds two sections a
+question needs together.
 
 The app can also switch while it runs: the **Optimize** switch in the top
 corner of the recipe card flips between normal and optimized. The conversation
@@ -641,6 +646,7 @@ lib/
   rag/                         the workflow: this app's RAG, step by step
     rag_recipe.dart            the switches, and the normal / optimized presets
     rag_pipeline.dart          ingest (load, chunk, embed, store; CSVs become tables), prepare (retrieve, gate, prompt), generate (run tool calls)
+    markdown_sections.dart     splits a markdown file before each heading
     calculate_tool.dart        the calculate tool: describes the CSV tables, checks the model's requests, computes exact figures
     normal_prompt.dart         the unoptimized prompt: a tutorial's one line
     optimized_prompt.dart      the optimized prompt, in sections per switch
