@@ -49,7 +49,9 @@ calculate tool. The tables are described below.
 
 
 Excerpts from the user's documents are included with this question. Prefer them
-for anything company-specific, and name the file you used.''';
+for anything company-specific, and name the file you used. A search found them
+in the user's knowledge base; the user did not paste them, so do not refer to
+them as something the user shared.''';
 
   /// Added to [groundedRules] under strict grounding.
   static const String aggregationRule = '''
