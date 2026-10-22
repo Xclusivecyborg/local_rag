@@ -4,8 +4,10 @@ import 'package:local_rag/models/ingest_progress.dart';
 import 'package:local_rag/models/ingest_result.dart';
 import 'package:local_rag/models/message_turn.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
+import 'package:local_rag/tables/csv_table.dart';
 import 'package:rag_blocks/rag_blocks.dart';
 
+import 'calculate_tool.dart';
 import 'rag_prompts.dart';
 import 'rag_recipe.dart';
 import 'retrieval_settings.dart';
@@ -16,13 +18,13 @@ typedef CreateIndex =
 
 /// Everything the pipeline decided before the model writes a word.
 class PreparedPrompt {
-  const PreparedPrompt({
+  PreparedPrompt({
     required this.messages,
     this.sources = const [],
     this.grounded = false,
     this.topScore,
     this.threshold,
-    this.computed,
+    this.calculator,
     this.searchedFor,
     this.retrievalError,
   });
@@ -40,8 +42,20 @@ class PreparedPrompt {
   /// The relevance gate used, or null when the recipe has no gate.
   final double? threshold;
 
-  /// Set when the answer was computed from a table instead of retrieved.
-  final QueryResult? computed;
+  /// The calculate tool offered to the model, when the recipe uses tool
+  /// calling and there are tables.
+  final CalculateTool? calculator;
+
+  /// Every calculation the model asked for while answering, in order. Filled
+  /// in by [RagPipeline.generate].
+  final List<CalculateOutcome> calculations = [];
+
+  /// The last figure the model computed, once [RagPipeline.generate] is done.
+  QueryResult? get computed =>
+      calculations.lastWhere((c) => c.succeeded, orElse: _none).result;
+
+  static CalculateOutcome _none() =>
+      CalculateOutcome.error(const ToolCall('', {}), '');
 
   /// The condensed search query, when it differed from the question.
   final String? searchedFor;
@@ -97,7 +111,7 @@ class RagPipeline {
       if (fileExtension(name) == '.csv') {
         // A CSV is used both ways: as text for lookups ("which supplier makes
         // Heritage shoes?") and as a table for arithmetic ("January revenue").
-        if (recipe.computeFromTables) {
+        if (recipe.useToolCalling) {
           final table = CsvTable.parse(text, source: name);
           if (table.rowCount > 0) tables.add(table);
         }
@@ -157,39 +171,16 @@ class RagPipeline {
     List<Turn> history = const [],
     bool thinkingModel = false,
   }) async {
-    // 5a. Arithmetic over a table is exact, so it takes priority.
-    var computed = recipe.computeFromTables
-        ? TableQueryPlanner.answer(tables, question)
+    // 5. Retrieval. With tool calling the model also gets the calculate
+    // tool, and decides itself whether a question needs it.
+    final calculator = recipe.useToolCalling && tables.isNotEmpty
+        ? CalculateTool(tables)
         : null;
-
-    // A short follow-up ("2026", "and February?") is not a question the
-    // planner can read on its own, so it gets one more try with the
-    // conversation filled in.
-    final isShortFollowUp =
-        history.isNotEmpty &&
-        question.trim().split(RegExp(r'\s+')).length <
-            QueryCondenser.minWordsToCondense;
-    if (computed == null &&
-        recipe.computeFromTables &&
-        tables.isNotEmpty &&
-        isShortFollowUp) {
-      final standalone = await _resolveFollowUp(
-        question,
-        chatModel: chatModel,
-        history: _last(history, condenserHistoryTurns),
-        thinkingModel: thinkingModel,
-      );
-      if (standalone != null) {
-        computed = TableQueryPlanner.answer(tables, standalone);
-      }
-    }
-
-    // 5b. Otherwise retrieve.
     List<ScoredChunk> hits = const [];
     String? searchedFor;
     String? retrievalError;
     final canSearch = index != null && !index.isEmpty && embeddingModel != null;
-    if (computed == null && canSearch) {
+    if (canSearch) {
       try {
         final search = await _search(
           question,
@@ -223,7 +214,7 @@ class RagPipeline {
         RagPrompts.system(
           grounded: grounded,
           strictGrounding: recipe.strictGrounding,
-          computed: computed != null,
+          tables: calculator?.describeTables(),
           guarded: recipe.guardedPrompt,
         ),
       ),
@@ -233,11 +224,7 @@ class RagPipeline {
         ChatMessage(turn.role, turn.content),
       ChatMessage(
         'user',
-        computed != null
-            ? RagPrompts.withComputed(question, computed)
-            : grounded
-            ? RagPrompts.withContext(question, sources)
-            : question,
+        grounded ? RagPrompts.withContext(question, sources) : question,
       ),
     ];
 
@@ -247,33 +234,52 @@ class RagPipeline {
       grounded: grounded,
       topScore: topScore,
       threshold: threshold,
-      computed: computed,
+      calculator: calculator,
       searchedFor: searchedFor,
       retrievalError: retrievalError,
     );
   }
 
-  /// 6. Generation: streams the answer to [prompt].
-  Stream<ChatChunk> generate(String chatModel, PreparedPrompt prompt) =>
-      ollama.chatStream(model: chatModel, messages: prompt.messages);
+  /// Most rounds of tool calls before the model must answer with what it
+  /// has. One call answers most questions; a comparison may need two.
+  static const int maxToolRounds = 3;
 
-  /// [question] rewritten as a standalone question, or null if the rewrite
-  /// failed or changed nothing.
-  Future<String?> _resolveFollowUp(
-    String question, {
-    required String chatModel,
-    required List<Turn> history,
-    required bool thinkingModel,
-  }) async {
-    final resolver = QueryCondenser(
-      ollama.chatModel(chatModel, think: thinkingModel ? false : null),
-      systemPrompt: RagPrompts.followUp,
-    );
-    final resolved = await resolver.condense(
-      question: question,
-      history: _forCondenser(history),
-    );
-    return resolved.wasCondensed ? resolved.text : null;
+  /// 6. Generation: streams the answer to [prompt].
+  ///
+  /// With a calculator, the model may ask for calculations first. Each is
+  /// run by code and sent back, and the model is asked again, until it
+  /// answers in words. Only the words and thinking are streamed out; what
+  /// was computed is recorded in [PreparedPrompt.calculations].
+  Stream<ChatChunk> generate(String chatModel, PreparedPrompt prompt) async* {
+    final calculator = prompt.calculator;
+    final messages = [...prompt.messages];
+    for (var round = 0; ; round++) {
+      final offerTools = calculator != null && round < maxToolRounds;
+      final calls = <ToolCall>[];
+      final said = StringBuffer();
+      await for (final chunk in ollama.chatStream(
+        model: chatModel,
+        messages: messages,
+        tools: offerTools ? [calculator.definition] : const [],
+      )) {
+        calls.addAll(chunk.toolCalls);
+        said.write(chunk.content ?? '');
+        final hasText =
+            (chunk.content?.isNotEmpty ?? false) ||
+            (chunk.thinking?.isNotEmpty ?? false);
+        if (hasText) {
+          yield ChatChunk(content: chunk.content, thinking: chunk.thinking);
+        }
+      }
+      if (calls.isEmpty || calculator == null) return;
+
+      messages.add(ChatMessage('assistant', said.toString(), toolCalls: calls));
+      for (final call in calls) {
+        final outcome = calculator.run(call);
+        prompt.calculations.add(outcome);
+        messages.add(ChatMessage.toolResult(call, outcome.text));
+      }
+    }
   }
 
   /// Earlier turns as condenser context, long answers cut to their start.

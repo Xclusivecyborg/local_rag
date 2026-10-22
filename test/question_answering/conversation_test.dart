@@ -10,6 +10,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:local_rag/tables/csv_table.dart';
 import 'package:rag_blocks/rag_blocks.dart';
 import 'package:local_rag/question_answering/rag_controller.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';

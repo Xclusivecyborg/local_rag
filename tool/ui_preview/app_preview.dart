@@ -26,6 +26,7 @@ import 'package:local_rag/ui/sidebar/sidebar.dart';
 import 'package:local_rag/ui/theme/app_theme.dart';
 import 'package:local_rag/ui/transcript/transcript.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
+import 'package:local_rag/tables/csv_table.dart';
 import 'package:rag_blocks/rag_blocks.dart';
 
 Future<void> loadFont(String family, String path) async {

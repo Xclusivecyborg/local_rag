@@ -1,3 +1,4 @@
+import 'package:local_rag/tables/csv_table.dart';
 import 'package:rag_blocks/rag_blocks.dart';
 
 /// One message in the conversation, plus how an assistant answer was produced.

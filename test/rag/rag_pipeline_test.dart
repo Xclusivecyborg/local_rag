@@ -10,11 +10,11 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:local_rag/models/message_turn.dart';
 import 'package:local_rag/rag/rag_pipeline.dart';
 import 'package:local_rag/rag/rag_prompts.dart';
 import 'package:local_rag/rag/rag_recipe.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
+import 'package:local_rag/tables/csv_table.dart';
 import 'package:rag_blocks/rag_blocks.dart';
 
 const embedModel = 'test-embed';
@@ -29,10 +29,14 @@ week_starting,location,product_line,revenue_ngn
 ''';
 
 /// Batches of more than one input are documents; a single input is a query.
-/// Every chat request gets [chatReply].
+/// Every chat request gets [chatReply], except that a request offering tools
+/// gets a call to `calculate` with [calculateArguments] when they are given,
+/// until a tool result has been sent back.
 OllamaClient fakeOllama({
   List<String>? chatRequests,
+  List<bool>? toolsOffered,
   String chatReply = 'short query',
+  Map<String, dynamic>? calculateArguments,
 }) => OllamaClient(
   client: MockClient.streaming((request, body) async {
     final json = jsonDecode(await body.bytesToString()) as Map;
@@ -45,9 +49,25 @@ OllamaClient fakeOllama({
         ],
       });
     } else {
-      chatRequests?.add(jsonEncode(json['messages']));
+      final messages = json['messages'] as List;
+      chatRequests?.add(jsonEncode(messages));
+      final offered = json['tools'] != null;
+      toolsOffered?.add(offered);
+      final answered = messages.any((m) => (m as Map)['role'] == 'tool');
       reply = jsonEncode({
-        'message': {'content': chatReply},
+        'message': offered && calculateArguments != null && !answered
+            ? {
+                'content': '',
+                'tool_calls': [
+                  {
+                    'function': {
+                      'name': 'calculate',
+                      'arguments': calculateArguments,
+                    },
+                  },
+                ],
+              }
+            : {'content': chatReply},
         'done': true,
       });
     }
@@ -140,33 +160,103 @@ void main() {
     expect(prompt.messages.last.content, 'Hello');
   });
 
-  test('optimized computes totals; naive retrieves for them', () async {
-    const question = 'What was the total revenue in January 2026?';
+  test('optimized lets the model calculate; naive never offers it', () async {
+    // Short, so the search condenser leaves it alone and every chat
+    // request below is the answer.
+    const question = 'Total revenue in January 2026?';
+    const january = {
+      'table': 'sales.csv',
+      'aggregate': 'sum',
+      'measure': 'revenue_ngn',
+      'from': '2026-01-01',
+      'to': '2026-01-31',
+    };
 
     final optimized = await ingest(RagRecipe.optimized);
-    final computed =
-        await RagPipeline(fakeOllama(), recipe: RagRecipe.optimized).prepare(
-          question: question,
-          chatModel: 'test-chat',
-          embeddingModel: embedModel,
-          index: optimized.store,
-          tables: optimized.tables,
-        );
-    expect(computed.computed?.value, 3500);
-    expect(computed.messages.last.content, contains('COMPUTED RESULT'));
+    final chats = <String>[];
+    final offered = <bool>[];
+    final pipeline = RagPipeline(
+      fakeOllama(
+        chatRequests: chats,
+        toolsOffered: offered,
+        chatReply: 'It was 3,500.',
+        calculateArguments: january,
+      ),
+      recipe: RagRecipe.optimized,
+    );
+    final prompt = await pipeline.prepare(
+      question: question,
+      chatModel: 'test-chat',
+      embeddingModel: embedModel,
+      index: optimized.store,
+      tables: optimized.tables,
+    );
+    final answer = await pipeline
+        .generate('test-chat', prompt)
+        .map((c) => c.content ?? '')
+        .join();
+
+    expect(answer, 'It was 3,500.');
+    expect(prompt.calculations.single.succeeded, isTrue);
+    expect(prompt.computed?.value, 3500);
+    // The model was asked again with the result, and tools still offered.
+    expect(offered, [true, true]);
+    expect(chats.last, contains('"role":"tool"'));
+    expect(chats.last, contains('Total revenue_ngn in January 2026: 3,500'));
+    expect(prompt.messages.first.content, contains('TABLES YOU CAN CALCULATE'));
 
     final naive = await ingest(RagRecipe.naive);
-    final retrieved = await RagPipeline(fakeOllama(), recipe: RagRecipe.naive)
-        .prepare(
-          question: question,
-          chatModel: 'test-chat',
-          embeddingModel: embedModel,
-          index: naive.store,
-          // Even handed a table, naive does not use it.
-          tables: optimized.tables,
-        );
+    final naiveOffered = <bool>[];
+    final naivePipeline = RagPipeline(
+      fakeOllama(toolsOffered: naiveOffered, calculateArguments: january),
+      recipe: RagRecipe.naive,
+    );
+    final retrieved = await naivePipeline.prepare(
+      question: question,
+      chatModel: 'test-chat',
+      embeddingModel: embedModel,
+      index: naive.store,
+      // Even handed a table, naive does not use it.
+      tables: optimized.tables,
+    );
+    await naivePipeline.generate('test-chat', retrieved).drain<void>();
+    expect(naiveOffered, [false]);
     expect(retrieved.computed, isNull);
     expect(retrieved.grounded, isTrue);
+  });
+
+  test('a calculation that cannot run is sent back as a message', () async {
+    final index = await ingest(RagRecipe.optimized);
+    final chats = <String>[];
+    final pipeline = RagPipeline(
+      fakeOllama(
+        chatRequests: chats,
+        calculateArguments: {
+          'table': 'sales.csv',
+          'aggregate': 'sum',
+          'measure': 'revenue_ngn',
+          'filters': [
+            {
+              'column': 'location',
+              'op': 'is',
+              'values': ['Ikeja'],
+            },
+          ],
+        },
+      ),
+      recipe: RagRecipe.optimized,
+    );
+    final prompt = await pipeline.prepare(
+      question: 'Total revenue for Ikeja?',
+      chatModel: 'test-chat',
+      embeddingModel: embedModel,
+      index: index.store,
+      tables: index.tables,
+    );
+    await pipeline.generate('test-chat', prompt).drain<void>();
+
+    expect(prompt.computed, isNull);
+    expect(chats.last, contains('There is no location called'));
   });
 
   test('only optimized asks the chat model to condense the question', () async {
@@ -216,84 +306,15 @@ void main() {
     }
   });
 
-  test(
-    'a short follow-up is computed with the conversation filled in',
-    () async {
-      final index = await ingest(RagRecipe.optimized);
-      final history = [
-        Turn(role: 'user', content: 'How much revenue was made in Q1?'),
-        Turn(role: 'assistant', content: 'Which year do you mean?'),
-      ];
-      final chats = <String>[];
-      final prompt =
-          await RagPipeline(
-            fakeOllama(
-              chatRequests: chats,
-              chatReply: 'How much revenue was made in Q1 2026?',
-            ),
-            recipe: RagRecipe.optimized,
-          ).prepare(
-            question: '2026',
-            chatModel: 'test-chat',
-            embeddingModel: embedModel,
-            index: index.store,
-            tables: index.tables,
-            history: history,
-          );
-
-      // On its own "2026" is not a question; rewritten, it covers every row.
-      expect(prompt.computed?.value, 7500);
-      expect(chats.single, contains('standalone question'));
-      expect(chats.single, contains('Which year do you mean?'));
-    },
-  );
-
-  test('a follow-up the rewrite cannot rescue falls back to search', () async {
-    final index = await ingest(RagRecipe.optimized);
-    final prompt =
-        await RagPipeline(
-          fakeOllama(chatReply: 'How much was made in Q1 2026?'),
-          recipe: RagRecipe.optimized,
-        ).prepare(
-          question: '2026',
-          chatModel: 'test-chat',
-          embeddingModel: embedModel,
-          index: index.store,
-          tables: index.tables,
-          history: [Turn(role: 'user', content: 'How much was made in Q1?')],
-        );
-    // "made" names no column, so the planner still declines.
-    expect(prompt.computed, isNull);
-  });
-
-  test('without a conversation there is no follow-up rewrite', () async {
-    final index = await ingest(RagRecipe.optimized);
-    final chats = <String>[];
-    await RagPipeline(
-      fakeOllama(chatRequests: chats),
-      recipe: RagRecipe.optimized,
-    ).prepare(
-      question: 'How much was made in Q1?',
-      chatModel: 'test-chat',
-      embeddingModel: embedModel,
-      index: index.store,
-      tables: index.tables,
-    );
-    expect(chats.where((c) => c.contains('standalone question')), isEmpty);
-  });
-
-  test('optimized asks for missing details unless a figure was computed', () {
+  test('optimized asks for missing details; naive does not', () {
     const rule = 'Ask for the missing detail';
-    bool asks({required bool grounded, bool computed = false}) =>
-        RagPrompts.system(
-          grounded: grounded,
-          strictGrounding: true,
-          computed: computed,
-        ).contains(rule);
+    bool asks({required bool grounded}) => RagPrompts.system(
+      grounded: grounded,
+      strictGrounding: true,
+    ).contains(rule);
 
     expect(asks(grounded: true), isTrue);
     expect(asks(grounded: false), isTrue);
-    expect(asks(grounded: false, computed: true), isFalse);
     expect(
       RagPrompts.system(
         grounded: true,
@@ -305,13 +326,20 @@ void main() {
     );
   });
 
-  test('the computed rules start on their own line', () {
-    final prompt = RagPrompts.system(
-      grounded: false,
-      strictGrounding: true,
-      computed: true,
+  test('the tool rules and tables come last, only with tables', () {
+    const tables = 'TABLES YOU CAN CALCULATE OVER';
+    for (final grounded in [true, false]) {
+      final prompt = RagPrompts.system(
+        grounded: grounded,
+        strictGrounding: true,
+        tables: tables,
+      );
+      expect(prompt, endsWith('${RagPrompts.toolRules}\n\n$tables'));
+    }
+    expect(
+      RagPrompts.system(grounded: true, strictGrounding: true),
+      isNot(contains('calculate tool')),
     );
-    expect(prompt, contains('guessing.\n\nA COMPUTED RESULT'));
   });
 
   test('each recipe has its own index folder', () {

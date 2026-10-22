@@ -11,7 +11,7 @@ class RagRecipe {
     this.chunkSize = 600,
     this.chunkOverlap = 200,
     this.csvAsProse = true,
-    this.computeFromTables = true,
+    this.useToolCalling = true,
     this.condenseQueries = true,
     this.maxChunksPerSource = 2,
     this.relevanceGate = true,
@@ -38,9 +38,10 @@ class RagRecipe {
 
   // ---- Answering -------------------------------------------------------
 
-  /// Answer totals and averages by computing over every CSV row, instead of
-  /// letting the model add up the five chunks it happened to retrieve.
-  final bool computeFromTables;
+  /// Give the model a calculate tool over the CSV files, so totals and
+  /// averages are computed over every row by code, not added up by the model
+  /// from the five chunks it happened to retrieve.
+  final bool useToolCalling;
 
   /// Rewrite a long question into a short search query before embedding it.
   final bool condenseQueries;
@@ -69,7 +70,7 @@ class RagRecipe {
     name: 'naive',
     chunkSize: 1200,
     csvAsProse: false,
-    computeFromTables: false,
+    useToolCalling: false,
     condenseQueries: false,
     maxChunksPerSource: null,
     relevanceGate: false,
@@ -132,11 +133,11 @@ class RagRecipe {
       enabled: relevanceGate,
     ),
     Optimization(
-      'Exact Table Calculations',
-      'Calculate precise answers to mathematical questions using the '
-          'provided data instead of leaving the arithmetic to the AI.',
+      'Use Tool Calling',
+      'When you have data that needs to be computed, like CSV tables, '
+          'don\'t embed it. Use tool calling to fetch data from it instead.',
       RagStage.answering,
-      enabled: computeFromTables,
+      enabled: useToolCalling,
     ),
     Optimization(
       'Strict Data Grounding',

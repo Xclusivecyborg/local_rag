@@ -9,6 +9,7 @@ import 'package:local_rag/rag/rag_recipe.dart';
 import 'package:local_rag/rag/retrieval_settings.dart';
 import 'package:local_rag/vector_search/objectbox_store.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:local_rag/tables/csv_table.dart';
 import 'package:rag_blocks/rag_blocks.dart';
 
 import 'model_preferences.dart';
