@@ -14,27 +14,24 @@ abstract final class RagPrompts {
   /// retrieved. With no excerpts it is simply a normal assistant.
   ///
   /// With [fineTuned] false the model gets [NormalPrompt] alone, as a
-  /// tutorial would give it: nothing tells it to admit what it does not know
-  /// or to name its sources.
+  /// tutorial would give it: nothing tells it to admit what it does not know,
+  /// to name its sources, to ask for a missing detail, or not to estimate
+  /// totals from a partial sample.
   ///
   /// [tables] is the calculate tool's table description, when the model has
   /// the tool.
   static String system({
     required bool grounded,
-    required bool strictGrounding,
     String? tables,
     bool fineTuned = true,
   }) {
-    final start = fineTuned
-        ? '${OptimizedPrompt.base}'
-              '${grounded ? OptimizedPrompt.groundedRules : ''}'
-        : NormalPrompt.system;
-    final rules = !strictGrounding
-        ? start
+    final rules = !fineTuned
+        ? NormalPrompt.system
         : grounded
-        ? '$start\n${OptimizedPrompt.clarifyRule}\n'
+        ? '${OptimizedPrompt.base}${OptimizedPrompt.groundedRules}\n'
+              '${OptimizedPrompt.clarifyRule}\n'
               '${OptimizedPrompt.aggregationRule}'
-        : '$start\n${OptimizedPrompt.clarifyRule}';
+        : '${OptimizedPrompt.base}\n${OptimizedPrompt.clarifyRule}';
     return tables == null
         ? rules
         : '$rules\n\n${OptimizedPrompt.toolRules}\n\n$tables';

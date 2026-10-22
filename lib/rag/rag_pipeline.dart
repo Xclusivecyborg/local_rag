@@ -235,7 +235,6 @@ class RagPipeline {
         'system',
         RagPrompts.system(
           grounded: grounded,
-          strictGrounding: recipe.strictGrounding,
           tables: calculator?.describeTables(),
           fineTuned: recipe.fineTunedPrompt,
         ),

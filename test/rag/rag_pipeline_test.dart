@@ -380,19 +380,13 @@ void main() {
 
   test('optimized asks for missing details; normal does not', () {
     const rule = 'Ask for the missing detail';
-    bool asks({required bool grounded}) => RagPrompts.system(
-      grounded: grounded,
-      strictGrounding: true,
-    ).contains(rule);
+    bool asks({required bool grounded}) =>
+        RagPrompts.system(grounded: grounded).contains(rule);
 
     expect(asks(grounded: true), isTrue);
     expect(asks(grounded: false), isTrue);
     expect(
-      RagPrompts.system(
-        grounded: true,
-        strictGrounding: false,
-        fineTuned: false,
-      ).contains(rule),
+      RagPrompts.system(grounded: true, fineTuned: false).contains(rule),
       isFalse,
       reason: 'normal',
     );
@@ -400,11 +394,7 @@ void main() {
 
   test('normal gets the tutorial prompt alone, even with excerpts', () {
     expect(
-      RagPrompts.system(
-        grounded: true,
-        strictGrounding: false,
-        fineTuned: false,
-      ),
+      RagPrompts.system(grounded: true, fineTuned: false),
       NormalPrompt.system,
     );
   });
@@ -412,15 +402,11 @@ void main() {
   test('the tool rules and tables come last, only with tables', () {
     const tables = 'TABLES YOU CAN CALCULATE OVER';
     for (final grounded in [true, false]) {
-      final prompt = RagPrompts.system(
-        grounded: grounded,
-        strictGrounding: true,
-        tables: tables,
-      );
+      final prompt = RagPrompts.system(grounded: grounded, tables: tables);
       expect(prompt, endsWith('${OptimizedPrompt.toolRules}\n\n$tables'));
     }
     expect(
-      RagPrompts.system(grounded: true, strictGrounding: true),
+      RagPrompts.system(grounded: true),
       isNot(contains('calculate tool')),
     );
   });
