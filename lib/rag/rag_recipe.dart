@@ -10,6 +10,7 @@ class RagRecipe {
     required this.name,
     this.chunkSize = 600,
     this.chunkOverlap = 200,
+    this.splitAtHeadings = true,
     this.useToolCalling = true,
     this.condenseQueries = true,
     this.maxChunksPerSource = 2,
@@ -29,6 +30,11 @@ class RagRecipe {
   /// at 600.
   final int chunkSize;
   final int chunkOverlap;
+
+  /// Chunk each section of a markdown file on its own, so no chunk mixes
+  /// two topics. Cut across sections, the "40% discount" sentence ended a
+  /// chunk about leave, and no discount question found it.
+  final bool splitAtHeadings;
 
   // ---- Answering -------------------------------------------------------
 
@@ -63,6 +69,7 @@ class RagRecipe {
   static const RagRecipe normal = RagRecipe(
     name: 'normal',
     chunkSize: 1200,
+    splitAtHeadings: false,
     useToolCalling: false,
     condenseQueries: false,
     maxChunksPerSource: null,
@@ -91,10 +98,12 @@ class RagRecipe {
   List<Optimization> get optimizations => [
     Optimization(
       'Smaller chunks',
-      'Cut files into smaller pieces',
+      'Cut files into smaller pieces, one section at a time',
       RagStage.indexing,
-      enabled: chunkSize <= 600,
-      setting: '$chunkSize chars',
+      enabled: chunkSize <= 600 && splitAtHeadings,
+      setting: splitAtHeadings
+          ? '$chunkSize chars, by section'
+          : '$chunkSize chars',
     ),
     Optimization(
       'Fine tune prompts',
