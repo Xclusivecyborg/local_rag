@@ -117,25 +117,32 @@ flutter test tool/retrieval_quality/before_after.dart
 It runs both recipes through `RagPipeline.prepare` on the same questions and
 writes `talk/eval/before_after.json` with every question, answer and score.
 
-Measured 2026-10-19 on `sample_kb/` with `locusai/all-minilm-l6-v2` and `gpt-oss`,
-before tool calling replaced the keyword planner, so the optimized column's
-totals came from the planner. Re-run `before_after.dart` with Ollama running to
-measure tool calling:
+Measured 2026-10-22 on `sample_kb/` with `locusai/all-minilm-l6-v2` and
+`gpt-oss`:
 
 | | normal | optimized |
 |---|---|---|
 | Right file in the model's context (23 questions) | 22 | 23 |
-| Right file ranked first (23) | 19 | 20 |
+| Right file ranked first (23) | 18 | 20 |
 | Small talk answered without documents (12) | 0 | 11 |
-| Totals exactly right, end to end (6) | 0 | 6 |
-| Median time to build the prompt | 24 ms | 38 ms |
+| Showcase questions answered right (6) | 0 | 6 |
+| Controls answered right (4) | 4 | 4 |
+| Median time to build the prompt | 25 ms | 25 ms |
 
-Normal's lookups look fine because it never filters: the right file usually rides
-along in its top five, along with everything else. The difference is what it
+The showcase questions are in `tool/eval_set.dart`, each with the
+optimizations that fix it. Three are totals over the sales CSV, which normal
+can't add up from five excerpts and tool calling computes exactly. "How much
+did Ikeja make?" leaves out the period, so the tuned prompt either asks for it
+or answers for the only quarter there is. "Who is Cristiano Ronaldo?" and "What
+is the capital of France?" are general knowledge: normal pastes in company
+excerpts and then says they don't mention it, while relevance filtering and the
+tuned prompt let the model just answer.
+
+The controls (paternity leave, a supplier contact, the staff discount, "Hello")
+show normal RAG isn't useless: a plain lookup in the documents works under both.
+Normal's lookups look fine because it never filters, so the right file usually
+rides along in its top five, with everything else. The difference is what that
 costs: every "Hello" gets five excerpts pasted in, and every total is wrong.
-Normal's totals fail because the sales rows never reach the model at all, and
-gpt-oss says so rather than guessing. Normal misses the long employee-discount
-question; the optimized recipe's condensed query finds it.
 
 ## The evaluation harness
 
