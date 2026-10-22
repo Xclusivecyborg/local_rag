@@ -219,7 +219,7 @@ class RagPipeline {
           grounded: grounded,
           strictGrounding: recipe.strictGrounding,
           tables: calculator?.describeTables(),
-          guarded: recipe.guardedPrompt,
+          guarded: recipe.fineTunedPrompt,
         ),
       ),
       // Earlier turns are replayed without their excerpts, so old context

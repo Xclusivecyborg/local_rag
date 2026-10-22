@@ -15,7 +15,7 @@ class RagRecipe {
     this.maxChunksPerSource = 2,
     this.relevanceGate = true,
     this.strictGrounding = true,
-    this.guardedPrompt = true,
+    this.fineTunedPrompt = true,
     this.topK = 5,
   });
 
@@ -54,7 +54,7 @@ class RagRecipe {
   /// Use the app's system prompt, which tells the model never to invent
   /// company facts. Off, it gets the tutorial's "answer using the excerpts",
   /// and will confidently add up whatever five chunks it was handed.
-  final bool guardedPrompt;
+  final bool fineTunedPrompt;
 
   /// Chunks retrieved per question.
   final int topK;
@@ -68,7 +68,7 @@ class RagRecipe {
     maxChunksPerSource: null,
     relevanceGate: false,
     strictGrounding: false,
-    guardedPrompt: false,
+    fineTunedPrompt: false,
   );
 
   /// Every optimization on.
@@ -137,7 +137,7 @@ class RagRecipe {
       'Never-invent prompt',
       'Never make up company facts',
       RagStage.answering,
-      enabled: guardedPrompt,
+      enabled: fineTunedPrompt,
     ),
   ];
 }

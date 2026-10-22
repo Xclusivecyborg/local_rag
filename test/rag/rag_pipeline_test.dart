@@ -305,7 +305,7 @@ void main() {
       );
       expect(
         prompt.messages.first.content.contains('Never invent facts'),
-        recipe.guardedPrompt,
+        recipe.fineTunedPrompt,
         reason: recipe.name,
       );
     }

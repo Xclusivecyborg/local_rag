@@ -92,7 +92,7 @@ that are on:
 | `maxChunksPerSource` | none | 2 | no one file fills every slot (under normal, the 240-row CSV does) |
 | `relevanceGate` | off | on | "Hello" gets a greeting, not the returns policy |
 | `strictGrounding` | off | on | the model won't estimate a total from a partial sample, and asks for a missing detail (a year, a measure) instead of refusing |
-| `guardedPrompt` | off | on | the system prompt forbids inventing company facts; normal gets the tutorial's "answer using the excerpts" |
+| `fineTunedPrompt` | off | on | the system prompt forbids inventing company facts; normal gets the tutorial's "answer using the excerpts" |
 
 The app can also switch while it runs: the **Optimize** switch in the top
 corner of the recipe card flips between normal and optimized. The conversation
