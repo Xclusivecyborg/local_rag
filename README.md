@@ -26,7 +26,7 @@ must install Ollama.
 | Inference | Ollama (`gpt-oss` by default) | REST on `127.0.0.1:11434` |
 | Embeddings | `locusai/all-minilm-l6-v2` | 384-d, via Ollama |
 | Vector search | ObjectBox | HNSW on disk, cosine distance |
-| Aggregation | `CsvTable` + planner | exact, over every row |
+| Aggregation | tool calling: a `calculate` tool over `CsvTable` | exact, over every row |
 | Building blocks | [`rag_blocks`](../rag_blocks) | splitter, condenser, tables, Ollama client: pure Dart |
 | Orchestration | `lib/rag/rag_pipeline.dart` | no LangChain, no Python |
 | UI | Flutter macOS | streaming, citations |
@@ -87,8 +87,8 @@ that are on:
 | Switch | naive | optimized | What it fixes |
 |---|---|---|---|
 | `chunkSize` | 1200 | 600 | short questions match small chunks (6/12 vs 10/12 retrieve) |
-| `csvAsProse` | off | on | `location: Victoria Island. units_sold: 41.` embeds; a raw CSV line doesn't |
-| `computeFromTables` | off | on | totals computed over every row, not added up from 5 chunks |
+| `csvAsProse` | off | (unused) | `location: Victoria Island. units_sold: 41.` embeds; a raw CSV line doesn't. Optimized doesn't embed CSVs at all |
+| `useToolCalling` | off | on | CSVs aren't embedded; the model calls a `calculate` tool that computes over every row, instead of adding up 5 chunks |
 | `condenseQueries` | off | on | long questions rewritten into a short search query |
 | `maxChunksPerSource` | none | 2 | the 240-row CSV can't fill every slot |
 | `relevanceGate` | off | on | "Hello" gets a greeting, not the returns policy |
@@ -194,39 +194,49 @@ No prompt fixes this, and no value of _k_ fixes it either. Retrieval ranks by
 Worse, `maxPerSource: 2` — the cap that fixed prose retrieval below — actively
 makes this failure worse by holding the CSV to two chunks.
 
-So structured files are parsed **twice**: into prose for semantic lookup, and
-into a real table (`CsvTable`) for arithmetic. Before retrieval runs,
-`TableQueryPlanner` decides whether the question is an aggregation over that
-table. If it is, the answer is *computed over every matching row* and the model
-is handed the finished figure to phrase rather than raw rows to add up:
+So structured files aren't embedded at all. With **Use Tool Calling** on, a
+CSV is loaded as a table (`CsvTable`) and the model gets a `calculate` tool,
+plus a description of each table in its system prompt: the columns, the values
+in each text column, and the dates covered. The model decides whether a
+question needs a figure and fills in a request; code checks it and computes it
+over every matching row; the model phrases the result:
 
 ```
 Q: How much was Stridewell's revenue in ngn in january 2026?
 
-Stridewell's revenue in NGN for **January 2026** was **71,882,000**.
-- **Period covered:** January 2026
-- **Metric:** Total `revenue_ngn`
-- **Data source:** Computed over 80 matching rows out of 240 in sales_q1_2026.csv.
+  → calculate {"table": "sales_q1_2026.csv", "aggregate": "sum",
+               "measure": "revenue_ngn", "from": "2026-01-01", "to": "2026-01-31"}
+  ← Total revenue_ngn in January 2026: 71,882,000
+    Computed over 80 matching row(s) out of 240 in sales_q1_2026.csv.
+
+The total revenue for Stridewell Footwear in January 2026 was ₦71,882,000.
 
   [ badge: computed over 80 of 240 rows · sales_q1_2026.csv ]
 ```
 
-**The planner's most important behaviour is refusing.** *"How much annual leave
-do full-time staff get?"* contains "how much", but no numeric column matches
-"leave" — so it declines and retrieval handles it. A planner that always
-produces something would answer that question with a sales figure. Ambiguity is
-declined too: if a question matches `revenue_ngn` and `unit_price_ngn` equally,
-it returns null rather than flipping a coin, because a plausible wrong number is
-the exact failure this feature exists to remove.
+The tool covers what keyword matching couldn't: "excluding Heritage" (a filter
+with `is_not`), "Heritage and Formal" (several values), "weeks with at least 40
+units" (a condition), "average revenue per month" (`per: month`, the average of
+three monthly totals, not of 240 rows), and "which location sold the most"
+(`per: location`, comparing location totals, not picking the biggest row).
+Follow-ups like "and February?" work because the model has the conversation.
 
-Retrieval and computation are mutually exclusive per turn, and the UI badge says
-which one answered. "5 of 43 chunks" and "80 of 240 rows" deserve very different
-amounts of trust.
+**The tool's most important behaviour is refusing.** A request that names a
+store the table doesn't have, filters the date column, or arrives in a shape it
+can't read is sent back with what's wrong ("There is no location called Ikeja.
+Did you mean Ikeja City Mall?"), never run with the bad part dropped. Live,
+gpt-oss once wrote a filter as the string `"location=Ikeja City Mall"`; an
+early version skipped it, totalled every location, and the model still called
+the figure Ikeja's. A plausible wrong number is the exact failure this feature
+exists to remove.
 
-The `strictGrounding` recipe switch still governs the retrieval path, where the model
-*is* working from a partial sample. It is deliberately not applied to computed
-answers — telling a model to warn about incomplete data when the figure covers
-every row makes it undermine a number that is exact.
+Before tool calling, `TableQueryPlanner` (still in `rag_blocks`) matched
+keywords in the question. Every new phrasing ("jan", "made", "excluding", "and
+February?") needed another rule. The model already understands all of those;
+tool calling lets it decide, while the arithmetic stays in code.
+
+The `strictGrounding` recipe switch still governs excerpts, where the model
+*is* working from a partial sample.
 
 ### 2. Changing the embedding model moves the goalposts twice
 
@@ -623,6 +633,7 @@ lib/
   rag/                         the workflow: this app's RAG, step by step
     rag_recipe.dart            the switches, and the naive / optimized presets
     rag_pipeline.dart          ingest (load, chunk, embed, store) and prepare (compute or retrieve, gate, prompt)
+    calculate_tool.dart        the calculate tool: describes the CSV tables, checks the model's requests, computes exact figures
     rag_prompts.dart           every piece of text sent to the chat model
     retrieval_settings.dart    top-k, per-file cap, measured per-model gates
 
