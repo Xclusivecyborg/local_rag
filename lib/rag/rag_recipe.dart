@@ -10,7 +10,6 @@ class RagRecipe {
     required this.name,
     this.chunkSize = 600,
     this.chunkOverlap = 200,
-    this.splitAtHeadings = true,
     this.useToolCalling = true,
     this.condenseQueries = true,
     this.maxChunksPerSource = 2,
@@ -25,16 +24,12 @@ class RagRecipe {
 
   // ---- Indexing --------------------------------------------------------
 
-  /// Maximum characters per chunk. Smaller chunks are about fewer things, so
-  /// they match short questions better: 6 of 12 retrieve at 1200, 10 of 12
-  /// at 600.
+  /// Maximum characters per chunk, the same in both recipes. Size is a
+  /// trade-off rather than a fix: 600 retrieves more short questions than
+  /// 1200 (10 of 12 against 6 of 12), but a 1200-character chunk sometimes
+  /// holds two sections a question needs together.
   final int chunkSize;
   final int chunkOverlap;
-
-  /// Chunk each section of a markdown file on its own, so no chunk mixes
-  /// two topics. Cut across sections, the "40% discount" sentence ended a
-  /// chunk about leave, and no discount question found it.
-  final bool splitAtHeadings;
 
   // ---- Answering -------------------------------------------------------
 

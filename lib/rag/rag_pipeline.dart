@@ -119,8 +119,8 @@ class RagPipeline {
           continue;
         }
       }
-      // 2. Chunking, a section at a time for markdown when the recipe says.
-      final sections = recipe.splitAtHeadings && fileExtension(name) == '.md'
+      // 2. Chunking, a section at a time for markdown.
+      final sections = fileExtension(name) == '.md'
           ? markdownSections(text)
           : [(text: text, start: 0)];
       var index = 0;

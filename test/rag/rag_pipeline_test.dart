@@ -134,7 +134,7 @@ void main() {
     expect(hits.where((h) => h.chunk.source == 'returns.md'), isNotEmpty);
   });
 
-  test('optimized chunks each markdown section on its own', () async {
+  test('both recipes chunk each markdown section on its own', () async {
     File('${kb.path}/handbook.md').writeAsStringSync(
       '## Leave\n\nTwenty days a year.\n\n'
       '## Staff discount\n\nAll employees receive a 40% discount.',
@@ -145,17 +145,11 @@ void main() {
         for (final h in index.store.search(docVector, k: 20))
           if (h.chunk.source == 'handbook.md') h.chunk,
       ];
-      expect(handbook, hasLength(recipe.splitAtHeadings ? 2 : 1));
+      expect(handbook, hasLength(2), reason: recipe.name);
       final discount = handbook.firstWhere((c) => c.text.contains('40%'));
-      expect(
-        discount.text.contains('Twenty days'),
-        !recipe.splitAtHeadings,
-        reason: recipe.name,
-      );
-      if (recipe.splitAtHeadings) {
-        final file = File('${kb.path}/handbook.md').readAsStringSync();
-        expect(file.substring(discount.start), startsWith('## Staff discount'));
-      }
+      expect(discount.text, isNot(contains('Twenty days')));
+      final file = File('${kb.path}/handbook.md').readAsStringSync();
+      expect(file.substring(discount.start), startsWith('## Staff discount'));
     }
   });
 
