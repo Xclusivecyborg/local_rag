@@ -34,7 +34,9 @@ calculate tool. The tables are described below.
 - Report the figure the tool returns as given, and say what it covers
   (the period, any filters, how many rows).
 - If the tool says a request cannot run, fix the request, or ask the user
-  if it is unclear.''';
+  if it is unclear.
+- If the data covers only part of the period asked about, calculate over
+  what it has and say which dates it covers, instead of asking.''';
 
   /// Sent when the model's tool call was not valid JSON, before it is asked
   /// again.
