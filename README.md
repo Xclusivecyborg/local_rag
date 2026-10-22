@@ -92,7 +92,7 @@ that are on:
 | `maxChunksPerSource` | none | 2 | no one file fills every slot (under normal, the 240-row CSV does) |
 | `relevanceGate` | off | on | "Hello" gets a greeting, not the returns policy |
 | `strictGrounding` | off | on | the model won't estimate a total from a partial sample, and asks for a missing detail (a year, a measure) instead of refusing |
-| `fineTunedPrompt` | off | on | the system prompt forbids inventing company facts; normal gets the tutorial's "answer using the excerpts" |
+| `fineTunedPrompt` | off | on | `optimized_prompt.dart` forbids inventing company facts; normal gets `normal_prompt.dart`, the tutorial's "answer using the excerpts" |
 
 The app can also switch while it runs: the **Optimize** switch in the top
 corner of the recipe card flips between normal and optimized. The conversation
@@ -586,11 +586,13 @@ what happened when only the chunk size changed.
 
 Two supporting details:
 
-- **The system prompt changes shape** depending on whether context was retrieved.
-  With excerpts it is told to prefer them and cite the file; without, it is just
-  an assistant. Both versions forbid inventing company facts, and under strict
-  grounding both ask for a missing detail rather than refuse. With Use Tool
-  Calling and CSV files indexed, the calculate tool's rules and a description
+- **There are two prompts, side by side.** `normal_prompt.dart` is the one line
+  a tutorial gives; `optimized_prompt.dart` is the tuned prompt, split into the
+  sections each switch turns on. With Fine tune prompts on, the model is told
+  never to invent company facts, and when excerpts were retrieved, to prefer
+  them and cite the file. Strict data grounding adds the rules to ask for a
+  missing detail rather than refuse, and not to estimate totals. With Tool
+  calling and CSV files indexed, the calculate tool's rules and a description
   of every table are added at the end.
 - **History is replayed clean.** The last 8 turns go into the request, but
   retrieved excerpts attach only to the current question and are never written
@@ -640,7 +642,9 @@ lib/
     rag_recipe.dart            the switches, and the normal / optimized presets
     rag_pipeline.dart          ingest (load, chunk, embed, store; CSVs become tables), prepare (retrieve, gate, prompt), generate (run tool calls)
     calculate_tool.dart        the calculate tool: describes the CSV tables, checks the model's requests, computes exact figures
-    rag_prompts.dart           every piece of text sent to the chat model
+    normal_prompt.dart         the unoptimized prompt: a tutorial's one line
+    optimized_prompt.dart      the optimized prompt, in sections per switch
+    rag_prompts.dart           puts the system prompt together from those two
     retrieval_settings.dart    top-k, per-file cap, measured per-model gates
 
   tables/
