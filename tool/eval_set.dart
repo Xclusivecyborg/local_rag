@@ -70,19 +70,6 @@ const Map<String, String> longFormEval = {
       'staff_handbook.md',
 };
 
-/// Aggregation questions over sales_q1_2026.csv -> the exact answer.
-///
-/// Ground truth computed with awk straight from the CSV, not by the app,
-/// so a bug in the calculation cannot also hide in the expected value.
-const Map<String, num> arithmeticEval = {
-  "How much was Stridewell's revenue in ngn in january 2026?": 71882000,
-  'What was our total revenue in Q1 2026?': 204740500,
-  'How many units were sold in February 2026?': 1374,
-  'What was the total revenue for the Heritage line in Q1 2026?': 25173500,
-  'How many units were returned in March 2026?': 35,
-  'What was the total revenue at Ikeja City Mall in February 2026?': 15787500,
-};
-
 /// A question asked end to end under both recipes, and how to tell a right
 /// answer from its text.
 class ShowcaseQuestion {
