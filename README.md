@@ -90,8 +90,7 @@ that are on:
 | `condenseQueries` | off | on | long questions rewritten into a short search query |
 | `maxChunksPerSource` | none | 2 | no one file fills every slot (under normal, the 240-row CSV does) |
 | `relevanceGate` | off | on | "Hello" gets a greeting, not the returns policy |
-| `strictGrounding` | off | on | the model won't estimate a total from a partial sample, and asks for a missing detail (a year, a measure) instead of refusing |
-| `fineTunedPrompt` | off | on | `optimized_prompt.dart` forbids inventing company facts; normal gets `normal_prompt.dart`, the tutorial's "answer using the excerpts" |
+| `fineTunedPrompt` | off | on | `optimized_prompt.dart` forbids inventing company facts, asks for a missing detail (a year, a measure) instead of refusing, and won't estimate a total from a partial sample; normal gets `normal_prompt.dart`, the tutorial's "answer using the excerpts" |
 
 Both recipes chunk the same way: 600 characters with 200 overlap, and markdown
 a section at a time, so no chunk mixes two topics. Chunk size isn't one of the
@@ -242,8 +241,8 @@ keywords in the question. Every new phrasing ("jan", "made", "excluding", "and
 February?") needed another rule. The model already understands all of those;
 tool calling lets it decide, while the arithmetic stays in code.
 
-The `strictGrounding` recipe switch still governs excerpts, where the model
-*is* working from a partial sample.
+The fine-tuned prompt's rule against estimating totals still governs
+excerpts, where the model *is* working from a partial sample.
 
 ### 2. Changing the embedding model moves the goalposts twice
 
@@ -594,11 +593,11 @@ Two supporting details:
 - **There are two prompts, side by side.** `normal_prompt.dart` is the one line
   a tutorial gives; `optimized_prompt.dart` is the tuned prompt, split into the
   sections each switch turns on. With Fine tune prompts on, the model is told
-  never to invent company facts, and when excerpts were retrieved, to prefer
-  them and cite the file. Strict data grounding adds the rules to ask for a
-  missing detail rather than refuse, and not to estimate totals. With Tool
-  calling and CSV files indexed, the calculate tool's rules and a description
-  of every table are added at the end.
+  never to invent company facts, and to ask for a missing detail rather than
+  refuse. When excerpts were retrieved, it is also told to prefer them, cite
+  the file, and not estimate totals from them. With Tool calling and CSV files
+  indexed, the calculate tool's rules and a description of every table are
+  added at the end.
 - **History is replayed clean.** The last 8 turns go into the request, but
   retrieved excerpts attach only to the current question and are never written
   into history — otherwise stale context from three questions ago keeps steering
