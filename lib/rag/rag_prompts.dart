@@ -13,8 +13,9 @@ abstract final class RagPrompts {
   /// The system prompt changes shape depending on whether context was
   /// retrieved. With no excerpts it is simply a normal assistant.
   ///
-  /// With [fineTuned] false, [NormalPrompt] replaces [OptimizedPrompt.base],
-  /// so nothing tells the model to admit what it does not know.
+  /// With [fineTuned] false the model gets [NormalPrompt] alone, as a
+  /// tutorial would give it: nothing tells it to admit what it does not know
+  /// or to name its sources.
   ///
   /// [tables] is the calculate tool's table description, when the model has
   /// the tool.
@@ -24,13 +25,16 @@ abstract final class RagPrompts {
     String? tables,
     bool fineTuned = true,
   }) {
-    final start = fineTuned ? OptimizedPrompt.base : NormalPrompt.system;
-    final rules = !grounded
-        ? (strictGrounding ? '$start\n${OptimizedPrompt.clarifyRule}' : start)
-        : strictGrounding
-        ? '$start${OptimizedPrompt.groundedRules}\n'
-              '${OptimizedPrompt.clarifyRule}\n${OptimizedPrompt.aggregationRule}'
-        : '$start${OptimizedPrompt.groundedRules}';
+    final start = fineTuned
+        ? '${OptimizedPrompt.base}'
+              '${grounded ? OptimizedPrompt.groundedRules : ''}'
+        : NormalPrompt.system;
+    final rules = !strictGrounding
+        ? start
+        : grounded
+        ? '$start\n${OptimizedPrompt.clarifyRule}\n'
+              '${OptimizedPrompt.aggregationRule}'
+        : '$start\n${OptimizedPrompt.clarifyRule}';
     return tables == null
         ? rules
         : '$rules\n\n${OptimizedPrompt.toolRules}\n\n$tables';

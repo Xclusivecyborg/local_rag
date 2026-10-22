@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:local_rag/rag/normal_prompt.dart';
 import 'package:local_rag/rag/optimized_prompt.dart';
 import 'package:local_rag/rag/rag_pipeline.dart';
 import 'package:local_rag/rag/rag_prompts.dart';
@@ -375,6 +376,17 @@ void main() {
       ).contains(rule),
       isFalse,
       reason: 'normal',
+    );
+  });
+
+  test('normal gets the tutorial prompt alone, even with excerpts', () {
+    expect(
+      RagPrompts.system(
+        grounded: true,
+        strictGrounding: false,
+        fineTuned: false,
+      ),
+      NormalPrompt.system,
     );
   });
 
