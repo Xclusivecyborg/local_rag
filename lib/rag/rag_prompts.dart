@@ -76,7 +76,8 @@ them as something the user shared.''';
   a month or quarter with no year ("Q1": which year?), an unclear measure ("how
   much was made": revenue in naira, or units sold?), a partial or unclear name
   ("Ikeja": which location?), or a relative date ("last month": which month and
-  year?).''';
+  year?). This comes first: ask before applying any rule about partial
+  excerpts.''';
 
   /// The system prompt changes shape depending on whether context was
   /// retrieved. With no excerpts it is simply a normal assistant.
