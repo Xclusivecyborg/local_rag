@@ -86,14 +86,15 @@ class ShowcaseQuestion {
   final List<String> fixedBy;
 
   /// The answer passes if it contains any of these, ignoring case, with the
-  /// ₦ sign and the commas in numbers removed.
+  /// ₦ sign and the separators in numbers removed.
   final List<String> passIf;
 
   bool passes(String answer) {
     final text = answer
         .toLowerCase()
+        .replaceAll(RegExp('[\u00a0\u2009\u202f]'), ' ')
         .replaceAll('₦', '')
-        .replaceAllMapped(RegExp(r'(\d),(?=\d{3})'), (m) => m[1]!);
+        .replaceAllMapped(RegExp(r'(\d)[, ](?=\d{3})'), (m) => m[1]!);
     return passIf.any((p) => text.contains(p.toLowerCase()));
   }
 }
@@ -112,7 +113,7 @@ const List<ShowcaseQuestion> showcase = [
     passIf: ['204740500'],
   ),
   ShowcaseQuestion(
-    'What was the total revenue at Wuse 2 in January 2026?',
+    'What was the total revenue at Wuse 2 Abuja in January 2026?',
     fixedBy: ['Tool calling'],
     passIf: ['12819000'],
   ),
@@ -129,8 +130,17 @@ const List<ShowcaseQuestion> showcase = [
   ),
   ShowcaseQuestion(
     'How much did Ikeja make?',
-    fixedBy: ['Strict data grounding'],
-    passIf: ['period', 'time frame', 'timeframe', 'which month', 'which year'],
+    // Asking which period is right; so is the total over the only quarter
+    // the data has.
+    fixedBy: ['Strict data grounding', 'Tool calling'],
+    passIf: [
+      'period',
+      'time frame',
+      'timeframe',
+      'which month',
+      'which year',
+      '45246500',
+    ],
   ),
   ShowcaseQuestion(
     'Who is Cristiano Ronaldo?',
@@ -146,7 +156,7 @@ const List<ShowcaseQuestion> showcase = [
   ShowcaseQuestion(
     'How long is paternity leave?',
     fixedBy: [],
-    passIf: ['two weeks', '2 weeks'],
+    passIf: ['two weeks', 'two (2) weeks', '2 weeks'],
   ),
   ShowcaseQuestion(
     'Who is the primary contact at Aba Leatherworks?',
