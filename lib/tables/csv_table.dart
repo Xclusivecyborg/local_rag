@@ -82,13 +82,18 @@ class CsvTable {
     return CsvTable(source: source, columns: columns, rows: body);
   }
 
-  /// Runs [query] over every row. Null if the query names an unknown column.
+  /// Runs [query] over every row. Null if the query names an unknown column,
+  /// or a condition on a column that is not numeric.
   QueryResult? aggregate(TableQuery query) {
     final isCount = query.aggregate == Aggregate.count;
     final metric = query.metric == null ? null : column(query.metric!);
     if (!isCount && metric == null) return null;
     final groupColumn = query.groupBy == null ? null : column(query.groupBy!);
     if (query.filters.any((f) => column(f.column) == null)) return null;
+    final numeric = query.conditions.every(
+      (c) => column(c.column)?.kind == ColumnKind.number,
+    );
+    if (!numeric) return null;
 
     final matched = [
       for (var r = 0; r < rows.length; r++)
@@ -156,6 +161,11 @@ class CsvTable {
       final value = cell(row, col).toLowerCase();
       final listed = filter.values.any((v) => v.toLowerCase() == value);
       if (listed == filter.exclude) return false;
+    }
+    for (final condition in query.conditions) {
+      final col = column(condition.column);
+      final n = col == null ? null : number(row, col);
+      if (n == null || !condition.holds(n)) return false;
     }
     final range = query.range;
     if (range != null) {
@@ -256,6 +266,39 @@ class ColumnFilter {
   String describe() => '$column ${exclude ? 'not ' : ''}${values.join(' or ')}';
 }
 
+/// How a [NumberCondition] compares.
+enum Comparison {
+  greaterThan('>'),
+  atLeast('>='),
+  lessThan('<'),
+  atMost('<=');
+
+  const Comparison(this.symbol);
+  final String symbol;
+
+  static Comparison? fromSymbol(String symbol) =>
+      values.where((c) => c.symbol == symbol).firstOrNull;
+}
+
+/// Keeps rows whose numeric [column] compares to [value], as in "weeks with
+/// at least 40 units sold".
+class NumberCondition {
+  const NumberCondition(this.column, this.comparison, this.value);
+
+  final String column;
+  final Comparison comparison;
+  final num value;
+
+  bool holds(num n) => switch (comparison) {
+    Comparison.greaterThan => n > value,
+    Comparison.atLeast => n >= value,
+    Comparison.lessThan => n < value,
+    Comparison.atMost => n <= value,
+  };
+
+  String describe() => '$column ${comparison.symbol} $value';
+}
+
 class DateRange {
   const DateRange(this.start, this.end, this.label);
   final DateTime start; // inclusive
@@ -268,6 +311,7 @@ class TableQuery {
     required this.aggregate,
     this.metric,
     this.filters = const [],
+    this.conditions = const [],
     this.range,
     this.groupBy,
   });
@@ -275,6 +319,7 @@ class TableQuery {
   final Aggregate aggregate;
   final String? metric; // the column being summed, averaged, etc.
   final List<ColumnFilter> filters;
+  final List<NumberCondition> conditions;
   final DateRange? range;
   final String? groupBy;
 
@@ -291,8 +336,11 @@ class TableQuery {
     final where = filters.isEmpty
         ? ''
         : ' for ${filters.map((f) => f.exclude || f.values.length > 1 ? f.describe() : '${f.column}=${f.value}').join(', ')}';
+    final conditional = conditions.isEmpty
+        ? ''
+        : ' where ${conditions.map((c) => c.describe()).join(' and ')}';
     final when = range == null ? '' : ' in ${range!.label}';
-    return '$verb$what$where$when';
+    return '$verb$what$where$conditional$when';
   }
 }
 

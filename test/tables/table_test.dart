@@ -271,5 +271,29 @@ void main() {
       );
       expect(result.value, 79101000);
     });
+
+    test('a condition on a number', () {
+      final result = run(
+        const TableQuery(
+          aggregate: Aggregate.sum,
+          metric: 'revenue_ngn',
+          conditions: [NumberCondition('units_sold', Comparison.atLeast, 40)],
+        ),
+      );
+      expect(result.value, 49616500);
+      expect(result.matchedRows, 35);
+      expect(result.query.describe(), contains('where units_sold >= 40'));
+      expect(
+        sales.aggregate(
+          const TableQuery(
+            aggregate: Aggregate.sum,
+            metric: 'revenue_ngn',
+            conditions: [NumberCondition('location', Comparison.lessThan, 3)],
+          ),
+        ),
+        isNull,
+        reason: 'a condition on a text column is refused',
+      );
+    });
   });
 }
