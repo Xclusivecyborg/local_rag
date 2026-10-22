@@ -127,7 +127,9 @@ class CalculateTool {
         'group_by': {
           'type': 'string',
           'enum': groupings,
-          'description': 'Give one figure per group, largest first.',
+          'description':
+              'Give one figure per group, largest first. Leave out for one '
+              'overall figure.',
         },
         'per': {
           'type': 'string',
@@ -135,7 +137,8 @@ class CalculateTool {
           'description':
               'Total per group first, then aggregate those totals: '
               '"average revenue per month" is aggregate average, per month. '
-              '"Which location sold the most" is aggregate max, per location.',
+              '"Which location sold the most" is aggregate max, per location. '
+              'Leave out for one overall figure.',
         },
       },
     };
@@ -259,6 +262,12 @@ class CalculateTool {
     final filters = <ColumnFilter>[];
     for (final raw in _list(arguments['filters'])) {
       final column = table.column('${raw['column']}');
+      if (column != null && column.kind == ColumnKind.date) {
+        return fail(
+          '"${column.name}" is a date column. Limit dates with "from" and '
+          '"to" (YYYY-MM-DD), not a filter.',
+        );
+      }
       if (column == null || column.kind != ColumnKind.text) {
         return fail(
           '"${raw['column']}" is not a text column in ${table.source}. Text '
@@ -360,7 +369,8 @@ class CalculateTool {
     return table.column(grouping)?.kind == ColumnKind.text
         ? null
         : '"$grouping" is not a text column in ${table.source}. Group by '
-              '${[...table.textColumns.map((c) => c.name), monthWord].join(', ')}.';
+              '${[...table.textColumns.map((c) => c.name), monthWord].join(', ')}, '
+              'or leave out "group_by" and "per" for one overall figure.';
   }
 
   /// The value as the table spells it, ignoring case, or null.

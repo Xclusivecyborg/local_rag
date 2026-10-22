@@ -230,6 +230,31 @@ void main() {
       );
     });
 
+    test('the mistakes a model makes say how to fix them', () {
+      expect(
+        errorFor({
+          'aggregate': 'sum',
+          'measure': 'revenue_ngn',
+          'group_by': 'total',
+        }),
+        contains('leave out "group_by" and "per" for one overall figure'),
+      );
+      expect(
+        errorFor({
+          'aggregate': 'sum',
+          'measure': 'revenue_ngn',
+          'filters': [
+            {
+              'column': 'week_starting',
+              'op': 'is',
+              'values': ['2026-01'],
+            },
+          ],
+        }),
+        contains('Limit dates with "from" and "to"'),
+      );
+    });
+
     test('an unknown tool is refused', () {
       final outcome = calculator.run(const ToolCall('search', {}));
       expect(outcome.succeeded, isFalse);
