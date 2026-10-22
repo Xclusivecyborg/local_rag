@@ -295,5 +295,24 @@ void main() {
         reason: 'a condition on a text column is refused',
       );
     });
+
+    test('a breakdown by month is in calendar order', () {
+      final result = run(
+        const TableQuery(
+          aggregate: Aggregate.sum,
+          metric: 'revenue_ngn',
+          groupBy: TableQuery.month,
+        ),
+      );
+      expect(result.groups, {
+        '2026-01': kJanuaryRevenue,
+        '2026-02': 64555500,
+        '2026-03': 68303000,
+      });
+      expect(
+        result.toPromptBlock(),
+        stringContainsInOrder(['2026-01', '2026-02', '2026-03']),
+      );
+    });
   });
 }

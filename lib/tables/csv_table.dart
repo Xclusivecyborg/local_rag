@@ -88,7 +88,8 @@ class CsvTable {
     final isCount = query.aggregate == Aggregate.count;
     final metric = query.metric == null ? null : column(query.metric!);
     if (!isCount && metric == null) return null;
-    final groupColumn = query.groupBy == null ? null : column(query.groupBy!);
+    final grouping = query.groupBy;
+    if (grouping != null && !_canGroupBy(grouping)) return null;
     if (query.filters.any((f) => column(f.column) == null)) return null;
     final numeric = query.conditions.every(
       (c) => column(c.column)?.kind == ColumnKind.number,
@@ -113,9 +114,8 @@ class CsvTable {
         extreme = n;
       }
       values.add(n);
-      if (groupColumn != null) {
-        (groupValues[cell(r, groupColumn)] ??= []).add(n);
-      }
+      final key = grouping == null ? null : _groupKey(r, grouping);
+      if (key != null) (groupValues[key] ??= []).add(n);
     }
 
     final isExtreme =
@@ -128,7 +128,7 @@ class CsvTable {
       totalRows: rows.length,
       // Each group gets the same aggregate as the headline figure, so an
       // average broken down by location lists each location's average.
-      groups: groupColumn == null
+      groups: grouping == null
           ? null
           : {
               for (final MapEntry(:key, :value) in groupValues.entries)
@@ -141,6 +141,18 @@ class CsvTable {
             }
           : null,
     );
+  }
+
+  bool _canGroupBy(String grouping) => grouping == TableQuery.month
+      ? dateColumn != null
+      : column(grouping) != null;
+
+  /// The group row [row] falls in, or null when it has no date to group by.
+  String? _groupKey(int row, String grouping) {
+    if (grouping != TableQuery.month) return cell(row, column(grouping)!);
+    final d = dateColumn == null ? null : date(row, dateColumn!);
+    if (d == null) return null;
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}';
   }
 
   static num _reduce(Aggregate aggregate, List<num> values) {
@@ -316,12 +328,21 @@ class TableQuery {
     this.groupBy,
   });
 
+  /// Pass as [groupBy] to group by the month of the date column.
+  static const String month = '@month';
+
   final Aggregate aggregate;
   final String? metric; // the column being summed, averaged, etc.
   final List<ColumnFilter> filters;
   final List<NumberCondition> conditions;
   final DateRange? range;
+
+  /// A column (or [month]) to break the result down by, one figure each.
   final String? groupBy;
+
+  /// How [groupBy] reads in a description: `month` for [month].
+  static String labelFor(String grouping) =>
+      grouping == month ? 'month' : grouping;
 
   /// The query in plain words, so the answer can say what was computed.
   String describe() {
@@ -340,7 +361,8 @@ class TableQuery {
         ? ''
         : ' where ${conditions.map((c) => c.describe()).join(' and ')}';
     final when = range == null ? '' : ' in ${range!.label}';
-    return '$verb$what$where$conditional$when';
+    final by = groupBy == null ? '' : ', by ${labelFor(groupBy!)}';
+    return '$verb$what$where$conditional$when$by';
   }
 }
 
@@ -405,7 +427,11 @@ class QueryResult {
     final g = groups;
     if (g != null && g.isNotEmpty) {
       buffer.writeln('Breakdown:');
-      for (final key in g.keys.toList()..sort()) {
+      // Months in order; anything else largest first, to answer "which most".
+      final byMonth = query.groupBy == TableQuery.month;
+      final keys = g.keys.toList()
+        ..sort(byMonth ? null : (a, b) => g[b]!.compareTo(g[a]!));
+      for (final key in keys) {
         buffer.writeln('  $key: ${formatNumber(g[key]!)}');
       }
     }
