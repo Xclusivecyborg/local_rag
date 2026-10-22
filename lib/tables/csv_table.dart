@@ -88,6 +88,7 @@ class CsvTable {
     final metric = query.metric == null ? null : column(query.metric!);
     if (!isCount && metric == null) return null;
     final groupColumn = query.groupBy == null ? null : column(query.groupBy!);
+    if (query.filters.any((f) => column(f.column) == null)) return null;
 
     final matched = [
       for (var r = 0; r < rows.length; r++)
@@ -152,9 +153,9 @@ class CsvTable {
     for (final filter in query.filters) {
       final col = column(filter.column);
       if (col == null) return false;
-      if (cell(row, col).toLowerCase() != filter.value.toLowerCase()) {
-        return false;
-      }
+      final value = cell(row, col).toLowerCase();
+      final listed = filter.values.any((v) => v.toLowerCase() == value);
+      if (listed == filter.exclude) return false;
     }
     final range = query.range;
     if (range != null) {
@@ -238,10 +239,21 @@ class CsvColumn {
 
 enum Aggregate { sum, average, count, min, max }
 
+/// Keeps rows whose [column] is one of [values], or, with [exclude], rows
+/// whose [column] is none of them. Compared without regard to case.
 class ColumnFilter {
-  const ColumnFilter(this.column, this.value);
+  ColumnFilter(this.column, String value) : values = [value], exclude = false;
+
+  const ColumnFilter.anyOf(this.column, this.values, {this.exclude = false});
+
   final String column;
-  final String value;
+  final List<String> values;
+  final bool exclude;
+
+  /// The first value, for a filter on a single value.
+  String get value => values.first;
+
+  String describe() => '$column ${exclude ? 'not ' : ''}${values.join(' or ')}';
 }
 
 class DateRange {
@@ -278,7 +290,7 @@ class TableQuery {
     final what = metric == null ? '' : ' $metric';
     final where = filters.isEmpty
         ? ''
-        : ' for ${filters.map((f) => '${f.column}=${f.value}').join(', ')}';
+        : ' for ${filters.map((f) => f.exclude || f.values.length > 1 ? f.describe() : '${f.column}=${f.value}').join(', ')}';
     final when = range == null ? '' : ' in ${range!.label}';
     return '$verb$what$where$when';
   }

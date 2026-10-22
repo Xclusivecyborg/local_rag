@@ -227,4 +227,49 @@ void main() {
       expect(block, contains('$kTotalRows'));
     });
   });
+
+  // Ground truth for this group computed with awk from the fixture.
+  group('queries a tool can ask for', () {
+    QueryResult run(TableQuery query) => sales.aggregate(query)!;
+
+    test('excluding a value', () {
+      final result = run(
+        const TableQuery(
+          aggregate: Aggregate.sum,
+          metric: 'revenue_ngn',
+          filters: [
+            ColumnFilter.anyOf('product_line', ['Heritage'], exclude: true),
+          ],
+        ),
+      );
+      expect(result.value, 179567000);
+      expect(result.query.describe(), contains('product_line not Heritage'));
+      expect(
+        sales.aggregate(
+          const TableQuery(
+            aggregate: Aggregate.sum,
+            metric: 'revenue_ngn',
+            filters: [
+              ColumnFilter.anyOf('store', ['Lekki']),
+            ],
+          ),
+        ),
+        isNull,
+        reason: 'a filter on an unknown column is refused, not ignored',
+      );
+    });
+
+    test('any of several values', () {
+      final result = run(
+        const TableQuery(
+          aggregate: Aggregate.sum,
+          metric: 'revenue_ngn',
+          filters: [
+            ColumnFilter.anyOf('product_line', ['Heritage', 'formal']),
+          ],
+        ),
+      );
+      expect(result.value, 79101000);
+    });
+  });
 }
